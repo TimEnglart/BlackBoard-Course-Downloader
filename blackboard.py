@@ -3,6 +3,7 @@ import re
 import requests
 from xml.etree import ElementTree
 import json
+import datetime
 
 
 class BlackBoardClient:
@@ -109,8 +110,8 @@ class BlackBoardCourse:
         self.name = self.request_data('name')
         self.name_safe = re.sub('[<>:"/\\|?*]', '-', self.name)
         self.description = self.request_data('description')
-        self.created = self.request_data('created')
-        self.modified = self.request_data('modified')
+        self.created = _to_date(self.request_data('created'))
+        self.modified = _to_date(self.request_data('modified'))
         self.organization = self.request_data('organization')
         self.ultra_status = self.request_data('ultraStatus')
         self.allow_guests = self.request_data('allowGuests')
@@ -155,8 +156,8 @@ class BlackBoardCourse:
             if not enrollment_0:
                 enrollment_0 = {}
             self.type = enrollment_0.get('type', None)
-            self.start = enrollment_0.get('start', None)
-            self.end = enrollment_0.get('end', None)
+            self.start = _to_date(enrollment_0.get('start', None))
+            self.end = _to_date(enrollment_0.get('end', None))
             self.access_code = enrollment_0.get('accessCode', None)
 
     class Locale:
@@ -171,8 +172,8 @@ class BlackBoardCourse:
             if not duration:
                 duration = {}
             self.type = duration.get('type', None)
-            self.start = duration.get('start', None)
-            self.end = duration.get('end', None)
+            self.start = _to_date(duration.get('start', None))
+            self.end = _to_date(duration.get('end', None))
             self.daysOfUse = duration.get('daysOfUse', None)
 
     def request_data(self, key, specific_object: dict = None):
@@ -208,7 +209,7 @@ class BlackBoardContent:
         self.title_safe = re.sub('[<>:"/\\|?*]', '-', self.title)
         self.body = self.request_data('body')
         self.description = self.request_data('description')
-        self.created = self.request_data('created')
+        self.created = _to_date(self.request_data('created'))
         self.position = self.request_data('position')
         self.has_children = self.request_data('hasChildren')
         self.has_gradebook_columns = self.request_data('hasGradebookColumns')
@@ -234,8 +235,8 @@ class BlackBoardContent:
         def __init__(self, adaptive_release: dict):
             if not adaptive_release:
                 adaptive_release = {}
-            self.start = adaptive_release.get('available', None)
-            self.end = adaptive_release.get('allowGuests', None)
+            self.start = _to_date(adaptive_release.get('available', None))
+            self.end = _to_date(adaptive_release.get('allowGuests', None))
 
     class ContentHandler:
         def __init__(self, content_handler: dict):
@@ -355,3 +356,7 @@ class BlackBoardAttachment:
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
             print("Downloaded: {}\nto: {}\n".format(self.file_name, location))
+
+
+def _to_date(date_string):
+    return datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S%z')
