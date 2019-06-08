@@ -1,4 +1,5 @@
-from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardEndPoints, BlackBoardCourse
+from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardEndPoints, BlackBoardCourse, \
+    BlackBoardInstitute
 import argparse
 import sys
 import json
@@ -14,59 +15,58 @@ def get_arguments():
     parser.add_argument("-u", "--username", help="Username to Login With")
     parser.add_argument("-p", "--password", help="Password to Login With")
     parser.add_argument("-s", "--site", help="Base Website Where Institute Black Board is Located")
-    parser.add_argument("-l", "--location", help="Local Path To Save Content")
+    parser.add_argument("-l", "--location", help="Local Path To Save Content", default='./')
     parser.add_argument("-c", "--course", help="Course ID to Download")
     parser.add_argument("-d", "--dump", help="Print/Dump All Course Data", action="store_true")
     parser.add_argument("-r", "--record", help="Create A Manifest For Downloaded Data", action="store_true",
                         default=True)
     parser.add_argument("-V", "--verbose", help="Print Program Runtime Information", action="store_true")
-    parser.add_argument("-C", "--config", help="Location of Configuration File")
+    parser.add_argument("-C", "--config", help="Location of Configuration File", default='./config.json')
 
     return parser.parse_args()
 
 
 def handle_arguments():
     args = get_arguments()
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    print(os.getcwd())
     if args.version:
         print("Application Version: v{}".format("0.0.1"))
         sys.exit(0)
 
-    args.config_file = {}
-    if args.config is None and not os.path.isfile('./config.json'):
-        args.config = False
-    else:  # Load Config
-        args.config = './config.json' if args.config is None else args.config
+    if os.path.isfile(args.config):
         try:
             with open(args.config) as json_file:
                 args.config_file = json.load(json_file)
+            args.username = args.config_file.get('username', None)
+            args.password = args.config_file.get('password', None)
+            args.site = args.config_file.get('site', None)
         except IOError:
             print("Unable to Read File at Location: {}".format(args.config))
+        except json.JSONDecodeError:
+            print("Unable to Parse Configuration File: {}".format(args.config))
 
     # Command Line Arg -> Config File -> Input
     if args.username is None:
-        args.username = args.config_file.get('username', input("Enter Username: "))
+        args.username = input("Enter Username: ")
         if not args.username.strip():
             print("No Username Supplied!")
             sys.exit(0)
 
     if args.password is None:
-        args.password = args.config_file.get('password', getpass.getpass("Enter Password: "))
-        if not args.password.strip():
+        args.password = getpass.getpass("Enter Password: ")
+        if not args.password or not args.password.strip():
             print("No Password Supplied!")
             sys.exit(0)
 
     if args.site is None:
-        args.site = args.config_file.get('site', input("Enter Black Board Host Website: "))
+        args.site = input("Enter Black Board Host Website: ")
         if not args.site.strip():
             print("No Site Supplied!")
             sys.exit(0)
 
     if args.location is None:
-        args.location = './'
-    else:
-        args.location = input("Enter Save Path: ")
-        if not args.location.strip():
-            args.location = './'
+        pass
 
     if args.course is None:
         pass

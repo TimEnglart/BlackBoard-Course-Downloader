@@ -4,6 +4,65 @@ import requests
 from xml.etree import ElementTree
 import json
 import datetime
+import xmltodict
+
+
+# Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
+
+
+class BlackBoardInstitute:
+    def __init__(self, **kwargs):
+        # if 'query' in kwargs:  # Use query
+        # self._institute_data = BlackBoardInstitute.find(kwargs['query'])
+        if 'data' in kwargs:  # pass Full Data in
+            self._institute_data = kwargs['data']
+        else:
+            raise Exception("No Institute Data Provided")
+
+        self.name = self._institute_data.get('name', None)
+        self.id = self._institute_data.get('id', None)
+        self.b2_url = self._institute_data.get('b2_url', None)
+        self.country = self._institute_data.get('country', None)
+        self.has_community_system = self._institute_data.get('has_community_system', None)
+        self.username_label = self._institute_data.get('username_label', None)
+        self.has_mobile_central = self._institute_data.get('has_mobile_central', None)
+        self.http_auth = self._institute_data.get('http_auth', None)
+        self.from_people_soft = self._institute_data.get('from_people_soft', None)
+        self.client_id = self._institute_data.get('client_id', None)
+        self.can_has_ssl_login = self._institute_data.get('can_has_ssl_login', None)
+        self.display_lms_host = self._institute_data.get('display_lms_host', None)
+        self.access = self._institute_data.get('access', None)
+        self.has_planner_license = self._institute_data.get('has_planner_license', None)
+        self.prospective_student_access = self._institute_data.get('prospective_student_access', None)
+        self.preferred_contact_methods = self._institute_data.get('preferred_contact_methods', None)
+        self.has_offline_license = self._institute_data.get('has_offline_license', None)
+        self.people_soft_institution_id = self._institute_data.get('people_soft_institution_id', None)
+        self.euse = self._institute_data.get('euse', None)
+        self.euse_label = self._institute_data.get('euse_label', None)
+        self.force_web_login_polling = self._institute_data.get('force_web_login_polling', None)
+        self.gcm = self._institute_data.get('gcm', None)
+
+    def __str__(self):
+        return "[{}] {} ({}): {}".format(self.country, self.name, self.id, self.display_lms_host)
+
+    def __repr__(self):
+        return str(self)
+
+    @staticmethod
+    def find(query):
+        xml = xmltodict.parse(requests.get("https://mlcs.medu.com/api/b2_registration/match_schools/?",
+                                           params={
+                                               "q": query,
+                                               "language": "en-GB",
+                                               "platform": "android",
+                                               "device_name": "Android",
+                                               "carrier_code": "1337",
+                                               "carrier_name": "LEET",
+                                           }).text)
+        if xml['data'] is not None:
+            return [BlackBoardInstitute(data=institute) for institute in xml['data']['s']]
+        return []
+
 
 class BlackBoardClient:
     def __init__(self, **kwargs):
