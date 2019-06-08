@@ -45,27 +45,27 @@ def handle_arguments():
     # Command Line Arg -> Config File -> Input
     if args.username is None:
         args.username = args.config_file.get('username', input("Enter Username: "))
-        if args.username.strip() is None:
+        if not args.username.strip():
             print("No Username Supplied!")
             sys.exit(0)
 
     if args.password is None:
         args.password = args.config_file.get('password', getpass.getpass("Enter Password: "))
-        if args.password.strip() is None:
+        if not args.password.strip():
             print("No Password Supplied!")
             sys.exit(0)
 
     if args.site is None:
         args.site = args.config_file.get('site', input("Enter Black Board Host Website: "))
-        if args.site.strip() is None:
+        if not args.site.strip():
             print("No Site Supplied!")
             sys.exit(0)
 
     if args.location is None:
         args.location = './'
     else:
-        args.location = input("Enter Save Path: ").strip()
-        if args.location is None:
+        args.location = input("Enter Save Path: ")
+        if not args.location.strip():
             args.location = './'
 
     if args.course is None:

@@ -5,50 +5,34 @@ from xml.etree import ElementTree
 import json
 import datetime
 
-
 class BlackBoardClient:
     def __init__(self, **kwargs):
-        self._username = kwargs["username"]
-        self._password = kwargs["password"]
-        self.site = kwargs.pop("site", "")
-        self.__debug = kwargs.pop("debug", "")
+        self.username = kwargs.get('username', None)
+        self.__password = kwargs.get('password', None)
+        self.site = kwargs.get('site', None)
         self.session = requests.Session()
-        self.registered_courses = []
-        self._user_id = None
-        self._batch_uid = None
+        self.user_id = None
+        self.batch_uid = None
+        if self.username is None or self.__password is None or self.site is None:
+            raise Exception("Missing Username and/or Password and/or Site")
 
     # XML
     def login(self):
         login = self.session.post(
             self.site + "/webapps/Bb-mobile-bb_bb60/sslUserLogin?v=2&f=xml&ver=4.1.2",
-            data={'username': self._username, 'password': self._password})
+            data={'username': self.username, 'password': self.__password})
         if login.status_code != 200:
             raise Exception("Unable to Login Using Mobile Route")
         else:
             parsed_xml = ElementTree.ElementTree(ElementTree.fromstring(login.text)).getroot()
-            self._user_id = parsed_xml.attrib["userid"]
-            self._batch_uid = parsed_xml.attrib["batch_uid"]
+            self.user_id = parsed_xml.attrib["userid"]
+            self.batch_uid = parsed_xml.attrib["batch_uid"]
 
     def courses(self):
-        courses = self.session.get(self.site + "/learn/api/public/v1/users/{}/courses".format(self._user_id)).json()
+        courses = self.session.get(self.site + "/learn/api/public/v1/users/{}/courses".format(self.user_id)).json()
         if "results" in courses:
             return [BlackBoardCourse(self, course["courseId"]) for course in courses["results"]]
         return []
-
-    # Mass Download Test -- Move to Course Class
-    def course_d2(self):
-        courses_data = self.session.get(self.site + "/learn/api/public/v1/users/{}/courses".format(self._user_id))
-        courses = json.loads(courses_data.text)
-        if "results" in courses:  # was successful
-            for json_object in courses["results"]:
-                course = BlackBoardCourse(self, json_object["courseId"])
-                if course.term_id is not None:
-                    content = course.contents()
-                    for c in content:
-                        course.iterate_with_path(c, "D:/JCU Shit/{}".format(course.name))
-                    print("=============================\nDOWNLOAD COMPLETE FOR: {}\n============================="
-                          .format(course.name))
-            print("Done")
 
 
 class BlackBoardEndPoints:
@@ -131,19 +115,6 @@ class BlackBoardCourse:
     def __repr__(self):
         return str(self)
 
-    def iterate_with_path(self, content, path=None):
-        if path is None:
-            path = './{}'.format(self.name.rstrip())
-        if content.content_handler.id == "resource/x-bb-folder":
-            path += ("/" + content.title.rstrip())
-
-        for attachment in content.attachments():
-            attachment.download(path)
-
-        if content.has_children:
-            for child in content.children():
-                self.iterate_with_path(child, path)
-
     class Availability:
         def __init__(self, availability_4: dict):
             if not availability_4:
@@ -184,9 +155,27 @@ class BlackBoardCourse:
 
     def contents(self):
         content_data = self._client.session.get(self._client.site + BlackBoardEndPoints.get_contents(self.id)).json()
-        if "results" not in content_data:
-            raise Exception("No Content")
-        return [BlackBoardContent(self, json=content) for content in content_data["results"]]
+        if "results" in content_data:
+            return [BlackBoardContent(self, json=content) for content in content_data["results"]]
+        return []
+
+    def download_all_attachments(self, save_location='./'):
+        # Content Iteration Loop
+        def iterate_with_path(content, path=None):
+            if path is None:
+                path = './{}'.format(self.name_safe)
+            if content.content_handler.id == "resource/x-bb-folder":
+                path += ("/" + content.title_safe)
+            for attachment in content.attachments():
+                attachment.download(path)
+            if content.has_children:
+                for child in content.children():
+                    iterate_with_path(child, path)
+
+        # Content Iteration Start
+        for c in self.contents():
+            iterate_with_path(c, "{}/{}".format(save_location, self.name_safe))
+        print("Downloaded All Attachments For Course: {}".format(self.name))
 
 
 class BlackBoardContent:
@@ -359,4 +348,4 @@ class BlackBoardAttachment:
 
 
 def _to_date(date_string):
-    return datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S%z')
+    return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f%z')
