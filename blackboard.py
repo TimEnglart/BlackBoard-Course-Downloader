@@ -17,7 +17,8 @@ class BlackBoardInstitute:
         if 'data' in kwargs:  # pass Full Data in
             self._institute_data = kwargs['data']
         else:
-            raise Exception("No Institute Data Provided")
+            # raise Exception("No Institute Data Provided")
+            self._institute_data = {}
 
         self.name = self._institute_data.get('name', None)
         self.id = self._institute_data.get('id', None)
@@ -60,7 +61,10 @@ class BlackBoardInstitute:
                                                "carrier_name": "LEET",
                                            }).text)
         if xml['data'] is not None:
-            return [BlackBoardInstitute(data=institute) for institute in xml['data']['s']]
+            if type(xml['data']['s']) is list:
+                return [BlackBoardInstitute(data=institute) for institute in xml['data']['s']]
+            else:
+                return [BlackBoardInstitute(data=xml['data']['s'])]
         return []
 
 
@@ -84,11 +88,14 @@ class BlackBoardClient:
             raise Exception("Unable to Login Using Mobile Route")
         else:
             parsed_xml = ElementTree.ElementTree(ElementTree.fromstring(login.text)).getroot()
-            self.user_id = parsed_xml.attrib["userid"]
-            self.batch_uid = parsed_xml.attrib["batch_uid"]
+            if parsed_xml.attrib['status'] == 'OK':
+                self.user_id = parsed_xml.attrib["userid"]
+                self.batch_uid = parsed_xml.attrib["batch_uid"]
+            else:
+                raise Exception("Unable to Login Using Mobile Route")
 
     def courses(self):
-        courses = self.session.get(self.site + "/learn/api/public/v1/users/{}/courses".format(self.user_id)).json()
+        courses = self.session.get(self.site + BlackBoardEndPoints.get_user_courses(self.user_id)).json()
         if "results" in courses:
             return [BlackBoardCourse(self, course["courseId"]) for course in courses["results"]]
         return []
@@ -250,7 +257,8 @@ class BlackBoardContent:
             if 'results' in content_data:
                 self.__content_data = content_data['results']
             else:
-                raise Exception("No Content")
+                # raise Exception("No Content")
+                self.__content_data = {}
         self.id = self.request_data('id')
         self.parentId = self.request_data('parentId')
         self.title = self.request_data('title')
