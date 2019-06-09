@@ -1,5 +1,5 @@
-from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardEndPoints, BlackBoardCourse, \
-    BlackBoardInstitute
+from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardEndPoints, \
+    BlackBoardCourse, BlackBoardInstitute
 import argparse
 import sys
 import json
