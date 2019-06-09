@@ -84,15 +84,13 @@ class BlackBoardClient:
         login = self.session.post(
             self.site + "/webapps/Bb-mobile-bb_bb60/sslUserLogin?v=2&f=xml&ver=4.1.2",
             data={'username': self.username, 'password': self.__password})
-        if login.status_code != 200:
-            raise Exception("Unable to Login Using Mobile Route")
-        else:
+        if login.status_code == 200:
             parsed_xml = ElementTree.ElementTree(ElementTree.fromstring(login.text)).getroot()
             if parsed_xml.attrib['status'] == 'OK':
                 self.user_id = parsed_xml.attrib["userid"]
                 self.batch_uid = parsed_xml.attrib["batch_uid"]
-            else:
-                raise Exception("Unable to Login Using Mobile Route")
+                return True
+        return False
 
     def courses(self):
         courses = self.session.get(self.site + BlackBoardEndPoints.get_user_courses(self.user_id)).json()
