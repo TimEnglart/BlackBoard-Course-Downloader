@@ -107,13 +107,114 @@ def handle_arguments():
         return main(args)
 
 
+ARGS = object()
+
 def main(args):
+    global ARGS
+    ARGS = args
     bbc = BlackBoardClient(username=args.username, password=args.password, site=args.site)
     if bbc.login():
-        course = navigation(default=BlackBoardCourse, options=bbc.courses(), attribute='name', sort=True)
-        print(course.name)
+        navigate(bbc)
+    return
+    course = navigation(default=BlackBoardCourse, options=bbc.courses(), attribute='name', sort=True)
+    print(course.name)
     # save_config(args)
     return
+
+
+class SubSelector:
+    def __init__(self):
+        pass
+
+
+def current_path(path=None, **kwargs):
+    back = kwargs.get('back', False)
+    addition = kwargs.get('addition', None)
+    if path is None:
+        path = []
+    if back:
+        path = path[:(-2 if 'step' not in kwargs else kwargs['step'])]
+    else:
+        if addition is not None:
+            path.append(addition)
+    return path
+
+
+# Janky AF - unmaintainable
+def navigate(chosen_item, previous_item=None, path=None):
+    global ARGS
+    clear()
+    path = current_path(path, addition=str(chosen_item))
+    print('/'.join(
+        path) + '\n')  # + "\n{}\n-\nCURRENT: {}\nPREVIOUS: {}\n".format((chosen_item.parent_id if hasattr(chosen_item, 'parent_id') else "No Parent") if chosen_item is not None else None, chosen_item, previous_item))
+    c_type = type(chosen_item)
+    p_type = type(previous_item)
+    if c_type.__name__ == "BlackBoardClient":
+        new_item = navigation(default=None, options=chosen_item.courses(), attribute='name', sort=True, title='Courses')
+        if new_item is None:
+            sys.exit(0)
+    elif c_type.__name__ == "BlackBoardCourse":
+        options = ["Get Content", "Download All Content"]  # Get Course Content
+        sub_selection = navigation(default=SubSelector, attribute=None, options=options)
+        if type(sub_selection).__name__ != "SubSelector":
+            index = options.index(sub_selection)
+            if index == 0:  # Content
+                new_item = navigation(default=None, options=chosen_item.contents(), attribute='title', sort=True,
+                                      title='Content')
+            elif index == 1:  # Download
+                chosen_item.download_all_attachments(ARGS.location)
+        else:
+            new_item = None
+    elif c_type.__name__ == "BlackBoardContent":
+        options = ["Get Child Content", "Get Attachments"]  # Get Child Content or Attachments
+        sub_selection = navigation(default=SubSelector, options=options, attribute=None)
+        if type(sub_selection).__name__ != "SubSelector":
+            index = options.index(sub_selection)
+            if index == 1:  # Attachments
+                new_item = navigation(default=None, options=chosen_item.attachments(), attribute='file_name', sort=True,
+                                      title='Attachment')
+                if new_item is None:
+                    navigate(chosen_item, previous_item, current_path(path, back=True, step=-1))
+            elif index == 0:  # Child Content
+                new_item = navigation(default=None, options=chosen_item.children(), attribute='title', sort=True,
+                                      title='Child')
+                if new_item is None:
+                    navigate(chosen_item, previous_item, current_path(path, back=True, step=-1))
+        else:
+            new_item = None
+    elif c_type.__name__ == "BlackBoardAttachment":
+        options = ["Download", "Back"]
+        sub_selection = navigation(default=SubSelector, options=options, attribute=None)
+        if type(sub_selection).__name__ != "SubSelector":
+            index = options.index(sub_selection)
+            if index == 0:  # Download
+                chosen_item.download(ARGS.location)
+        new_item = None
+    else:
+        new_item = None  # Go Back
+    # print(new_item.parent_id)
+    if new_item is None:
+        if previous_item is None:  # Find Parent Content
+            if c_type.__name__ == "BlackBoardContent":
+                if chosen_item.parent_id is None:
+                    navigate(chosen_item._course, None, current_path(path, back=True))
+                else:
+                    input("COURSE OBJECT: {}\nCOURSE ID: {}\nPARENT ID: {}\n".format(chosen_item._course,
+                                                                                     chosen_item._course.course_id,
+                                                                                     chosen_item.parent_id))
+                    navigate(BlackBoardContent(chosen_item._course, course_id=chosen_item._course.id,
+                                               content_id=chosen_item.parent_id), None, current_path(path, back=True))
+            elif c_type.__name__ == "BlackBoardAttachment":
+                navigate(chosen_item._content, None, current_path(path, back=True))
+            elif c_type.__name__ == "BlackBoardCourse":
+                navigate(chosen_item._client, None, current_path(path, back=True))
+        else:
+            # if previous_item is None:
+
+            # else:
+            navigate(previous_item, None, current_path(path, back=True))
+    else:
+        navigate(new_item, chosen_item, path)
 
 
 def save_config(args):
@@ -130,21 +231,25 @@ def navigation(**kwargs):
     # Handle kwargs
     options = kwargs.get('options', [])
     default = kwargs.get('default', object if not options else type(options[0]))
-    input_text = kwargs.get('input', "Enter {} Number to Select ['c' to Exit]: ".format(default.__name__))
+    title = kwargs.get('title', '')
+    input_text = kwargs.get('input',
+                            "Enter {} Number to Select ['c' to Exit]: ".format(title if title else default.__name__))
     attribute = kwargs.get('attribute', '__name__')
     sort = kwargs.get('sort', False)
+    previous = kwargs.get('previous', None)
 
     if sort:
         options = sorted(options, key=lambda element: getattr(element, attribute))
     if not options:
         print('No Options Present')
-        return default()
+        return (default() if default is not None else None) if previous is None else previous
     while True:
         for i in range(len(options)):
-            print("[{}] {}".format(i + 1, getattr(options[i], attribute)))
+            print("[{}] {}".format(i + 1, getattr(options[i], attribute) if attribute is not None else str(options[i])))
         choice = input(input_text)
+        print("\n")
         if choice.isalpha():
-            return default()
+            return (default() if default is not None else None) if previous is None else previous
         try:
             choice = int(choice)
             if choice > len(options) or choice <= 0:
@@ -152,6 +257,10 @@ def navigation(**kwargs):
             return options[choice - 1]
         except TypeError:
             print("Invalid Selection")
+
+
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 
 if __name__ == "__main__":

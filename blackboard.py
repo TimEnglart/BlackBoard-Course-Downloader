@@ -1,13 +1,12 @@
 import os
 import re
 import requests
-from xml.etree import ElementTree
-import json
 import datetime
 import xmltodict
 
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
+
 
 
 class BlackBoardInstitute:
@@ -85,10 +84,10 @@ class BlackBoardClient:
             self.site + "/webapps/Bb-mobile-bb_bb60/sslUserLogin?v=2&f=xml&ver=4.1.2",
             data={'username': self.username, 'password': self.__password})
         if login.status_code == 200:
-            parsed_xml = ElementTree.ElementTree(ElementTree.fromstring(login.text)).getroot()
-            if parsed_xml.attrib['status'] == 'OK':
-                self.user_id = parsed_xml.attrib["userid"]
-                self.batch_uid = parsed_xml.attrib["batch_uid"]
+            xml = xmltodict.parse(login.text)['mobileresponse']
+            if xml['@status'] == 'OK':
+                self.user_id = xml['@userid']
+                self.batch_uid = xml['@batch_uid']
                 return True
         return False
 
@@ -97,6 +96,12 @@ class BlackBoardClient:
         if "results" in courses:
             return [BlackBoardCourse(self, course["courseId"]) for course in courses["results"]]
         return []
+
+    def __str__(self):
+        return "{}".format(self.username)
+
+    def __repr__(self):
+        return str(self)
 
 
 class BlackBoardEndPoints:
@@ -156,7 +161,7 @@ class BlackBoardCourse:
         self.data_source_id = self.request_data('dataSourceId')
         self.course_id = self.request_data('courseId')
         self.name = self.request_data('name')
-        self.name_safe = re.sub('[<>:"/\\|?*]', '-', self.name)
+        self.name_safe = re.sub('[<>:"/\\|?*]', '-', self.name) if self.name is not None else ''
         self.description = self.request_data('description')
         self.created = _to_date(self.request_data('created'))
         self.modified = _to_date(self.request_data('modified'))
@@ -252,15 +257,12 @@ class BlackBoardContent:
         elif 'course_id' in kwargs and 'content_id' in kwargs:
             content_data = self._client.session.get(
                 self._client.site + BlackBoardEndPoints.get_content(kwargs['course_id'], kwargs['content_id'])).json()
-            if 'results' in content_data:
-                self.__content_data = content_data['results']
-            else:
-                # raise Exception("No Content")
-                self.__content_data = {}
+            # Sends No results bs as its just content for 1 Item
+            self.__content_data = content_data
         self.id = self.request_data('id')
-        self.parentId = self.request_data('parentId')
+        self.parent_id = self.request_data('parentId')
         self.title = self.request_data('title')
-        self.title_safe = re.sub('[<>:"/\\|?*]', '-', self.title)
+        self.title_safe = re.sub('[<>:"/\\|?*]', '-', self.title) if self.title is not None else ''
         self.body = self.request_data('body')
         self.description = self.request_data('description')
         self.created = _to_date(self.request_data('created'))
@@ -394,17 +396,19 @@ class BlackBoardAttachment:
     def __repr__(self):
         return str(self)
 
-    def download(self, location=None):
+    def download(self, location=None, **kwargs):
         download_location = ("./{}" if location is None else location + "/{}").format(self.file_name)
         download = self._client.session.get(
             self._client.site + BlackBoardEndPoints.get_file_attachment_download(self._course.id, self._content.id,
                                                                                  self.id))
         if download.status_code == 302:
             print("File Located at: {}".format(download.headers.get("Location", "")))
+            # Navigate to Location
         elif download.status_code == 200:
             if not os.path.exists(location):
                 os.makedirs(location)
             if os.path.isfile(download_location):
+                # Check if Overwrite
                 print("File Exists No Download..")
                 return
             with open(download_location, 'wb') as file_out:
