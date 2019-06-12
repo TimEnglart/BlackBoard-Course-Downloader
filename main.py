@@ -109,16 +109,17 @@ def handle_arguments():
 
 ARGS = object()
 
+
 def main(args):
     global ARGS
     ARGS = args
     bbc = BlackBoardClient(username=args.username, password=args.password, site=args.site)
     if bbc.login():
+        save_config(args)
         navigate(bbc)
-    return
-    course = navigation(default=BlackBoardCourse, options=bbc.courses(), attribute='name', sort=True)
-    print(course.name)
-    # save_config(args)
+    else:
+        if input("Failed to Login [Enter 'r' to Retry]") == 'r':
+            main(args)
     return
 
 
@@ -162,7 +163,8 @@ def navigate(chosen_item, previous_item=None, path=None):
                 new_item = navigation(default=None, options=chosen_item.contents(), attribute='title', sort=True,
                                       title='Content')
             elif index == 1:  # Download
-                chosen_item.download_all_attachments(ARGS.location)
+                chosen_item.download_all_attachments(ARGS.location)  # Quits When Done
+                new_item = None
         else:
             new_item = None
     elif c_type.__name__ == "BlackBoardContent":
@@ -199,9 +201,6 @@ def navigate(chosen_item, previous_item=None, path=None):
                 if chosen_item.parent_id is None:
                     navigate(chosen_item._course, None, current_path(path, back=True))
                 else:
-                    input("COURSE OBJECT: {}\nCOURSE ID: {}\nPARENT ID: {}\n".format(chosen_item._course,
-                                                                                     chosen_item._course.course_id,
-                                                                                     chosen_item.parent_id))
                     navigate(BlackBoardContent(chosen_item._course, course_id=chosen_item._course.id,
                                                content_id=chosen_item.parent_id), None, current_path(path, back=True))
             elif c_type.__name__ == "BlackBoardAttachment":
@@ -220,7 +219,7 @@ def navigate(chosen_item, previous_item=None, path=None):
 def save_config(args):
     config = {
         'username': args.username,
-        'password': args.password,
+        # 'password': args.password,
         'site': args.site
     }
     with open(args.config, 'w') as save:
