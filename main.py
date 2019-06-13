@@ -136,7 +136,8 @@ def navigate(selected_item, path: list = None, error_message=''):
         path = []
     current_path(path, str(selected_item))
 
-    print("{}\n{}".format('/'.join(path), "Error: " + error_message if error_message else ""))
+    print("{}\n{}".format('/'.join(path), "Error: " + error_message + "\n" if error_message else ""))
+    error_message = ''
     item_class_name = type(selected_item).__name__
     if item_class_name == "BlackBoardClient":
 
@@ -177,8 +178,10 @@ def navigate(selected_item, path: list = None, error_message=''):
             else:  # Attachments
                 next_item = navigation(options=selected_item.attachments(), attribute='file_name', sort=True,
                                        title='Attachment')
-                if next_item is None:
-                    error_message = "No Attachments"
+            if next_item is None:
+                next_item = selected_item
+                current_path(path, '', -1)
+                error_message = "No Content"
 
         # Going Backwards
         if next_item is None:
@@ -197,7 +200,9 @@ def navigate(selected_item, path: list = None, error_message=''):
             selected_item.download(ARGS.location)
 
         # Always Go Back to Attachments Parent
+        current_path(path)
         next_item = selected_item.content  # Originally was navigate(selected_item.content)
+        error_message = "Successfully Downloaded: {}".format(selected_item.file_name)
 
     if next_item is not None:
         # current_path(path)
