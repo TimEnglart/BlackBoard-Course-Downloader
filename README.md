@@ -33,7 +33,7 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 -m, --mass-download     Download All Course Documents                           Default: False
 -u, --username          Username to Login With                                  Default: None
 -p, --password          Password to Login With                                  Default: None
--s"--site               Base Website Where Institute Black Board is Located     Default: None
+-s, --site               Base Website Where Institute Black Board is Located    Default: None
 -l, --location          Local Path To Save Content                              Default: './'
 -c, --course            Course ID to Download                                   Default: None
 -r, --record            Create A Manifest For Downloaded Data                   Default: True               (Not Implemented)
