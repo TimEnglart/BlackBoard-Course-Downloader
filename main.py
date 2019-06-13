@@ -177,6 +177,8 @@ def navigate(selected_item, path: list = None, error_message=''):
             else:  # Attachments
                 next_item = navigation(options=selected_item.attachments(), attribute='file_name', sort=True,
                                        title='Attachment')
+                if next_item is None:
+                    error_message = "No Attachments"
 
         # Going Backwards
         if next_item is None:
@@ -234,11 +236,11 @@ def navigation(**kwargs):
             print("Invalid Selection")
 
 
-def current_path(path: list = None, addition: str = ''):
+def current_path(path: list = None, addition: str = '', step: int = -2):
     if addition:
         path.append(addition)
     else:
-        del path[-2:]
+        del path[step:]
 
 
 def save_config(args):
