@@ -163,7 +163,7 @@ def navigate(selected_item, path: list = None, error_message=''):
         # Going Backwards
         if next_item is None:
             current_path(path)
-            next_item = selected_item._client
+            next_item = selected_item.client
 
     elif item_class_name == "BlackBoardContent":
         options = ["Get Child Content", "Get Attachments"]  # Get Child Content or Attachments
@@ -182,9 +182,9 @@ def navigate(selected_item, path: list = None, error_message=''):
         if next_item is None:
             current_path(path)
             if selected_item.parent_id is None:  # Has No Parent Content (Return Course)
-                next_item = selected_item._course
+                next_item = selected_item.course
             else:  # Has Parent Content (Return Content)
-                parent_content = BlackBoardContent(selected_item._course, course_id=selected_item._course.id,
+                parent_content = BlackBoardContent(selected_item.course, course_id=selected_item.course.id,
                                                    content_id=selected_item.parent_id)
                 next_item = parent_content
 

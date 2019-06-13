@@ -7,7 +7,7 @@ import xmltodict
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
 
-
+# TODO: Use Similar Parameters Layouts for All Classes
 
 class BlackBoardInstitute:
     def __init__(self, **kwargs):
@@ -153,8 +153,8 @@ class BlackBoardEndPoints:
 
 class BlackBoardCourse:
     def __init__(self, client: BlackBoardClient, course_id: str):
-        self._client = client
-        self._course_data = client.session.get(client.site + BlackBoardEndPoints.get_course(course_id)).json()
+        self.client = client
+        self.__course_data = client.session.get(client.site + BlackBoardEndPoints.get_course(course_id)).json()
         self.id = self.request_data('id')
         self.uuid = self.request_data('uuid')
         self.external_id = self.request_data('externalId')
@@ -218,12 +218,12 @@ class BlackBoardCourse:
 
     def request_data(self, key, specific_object: dict = None):
         if specific_object is None:
-            return self._course_data.get(key, None)
+            return self.__course_data.get(key, None)
         else:
             return specific_object.get(key, None)
 
     def contents(self):
-        content_data = self._client.session.get(self._client.site + BlackBoardEndPoints.get_contents(self.id)).json()
+        content_data = self.client.session.get(self.client.site + BlackBoardEndPoints.get_contents(self.id)).json()
         if "results" in content_data:
             return [BlackBoardContent(self, json=content) for content in content_data["results"]]
         return []
@@ -249,14 +249,14 @@ class BlackBoardCourse:
 
 class BlackBoardContent:
     def __init__(self, course: BlackBoardCourse, **kwargs):
-        self._course = course
-        self._client = course._client
+        self.course = course
+        self.client = course.client
         self.__content_data = {}
         if "json" in kwargs:
             self.__content_data = kwargs.get('json', None)
         elif 'course_id' in kwargs and 'content_id' in kwargs:
-            content_data = self._client.session.get(
-                self._client.site + BlackBoardEndPoints.get_content(kwargs['course_id'], kwargs['content_id'])).json()
+            content_data = self.client.session.get(
+                self.client.site + BlackBoardEndPoints.get_content(kwargs['course_id'], kwargs['content_id'])).json()
             # Sends No results bs as its just content for 1 Item
             self.__content_data = content_data
         self.id = self.request_data('id')
@@ -352,16 +352,16 @@ class BlackBoardContent:
 
     def children(self):
         if self.has_children:
-            children_content = self._client.session.get(
-                self._client.site + BlackBoardEndPoints.get_content_children(self._course.id, self.id)).json()
+            children_content = self.client.session.get(
+                self.client.site + BlackBoardEndPoints.get_content_children(self.course.id, self.id)).json()
             if "results" in children_content:
-                return [BlackBoardContent(self._course, json=content) for content in children_content["results"]]
+                return [BlackBoardContent(self.course, json=content) for content in children_content["results"]]
         return []
 
     def attachments(self):
         if self.content_handler.id in ("resource/x-bb-file", "resource/x-bb-document", "resource/x-bb-assignment"):
-            attachments = self._client.session.get(
-                self._client.site + BlackBoardEndPoints.get_file_attachments(self._course.id, self.id)).json()
+            attachments = self.client.session.get(
+                self.client.site + BlackBoardEndPoints.get_file_attachments(self.course.id, self.id)).json()
             if "results" in attachments:
                 return [BlackBoardAttachment(self, content) for content in attachments["results"]]
         return []
@@ -386,9 +386,9 @@ class BlackBoardAttachment:
         self.id = file_attachment.get('id', None)
         self.file_name = file_attachment.get('fileName', None)
         self.mime_type = file_attachment.get('mimeType', None)
-        self._client = content._client
-        self._course = content._course
-        self._content = content
+        self.client = content.client
+        self.course = content.course
+        self.content = content
 
     def __str__(self):
         return "{} ({}) - {}".format(self.file_name, self.id, self.mime_type)
@@ -398,9 +398,9 @@ class BlackBoardAttachment:
 
     def download(self, location=None, **kwargs):
         download_location = ("./{}" if location is None else location + "/{}").format(self.file_name)
-        download = self._client.session.get(
-            self._client.site + BlackBoardEndPoints.get_file_attachment_download(self._course.id, self._content.id,
-                                                                                 self.id))
+        download = self.client.session.get(
+            self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id,
+                                                                                self.id))
         if download.status_code == 302:
             print("File Located at: {}".format(download.headers.get("Location", "")))
             # Navigate to Location
