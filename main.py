@@ -30,7 +30,7 @@ def handle_arguments():
     args = get_arguments()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     if args.version:
-        print("Application Version: v{}".format("0.0.1"))
+        print("Application Version: v{}".format("1.0.0"))
         sys.exit(0)
 
     config_content = {}
