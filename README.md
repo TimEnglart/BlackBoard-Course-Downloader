@@ -17,7 +17,7 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 
 ## Setup
 ##### Using Source
-1. [Clone](https://github.com/TimEnglart/CloudFlareDDNS.git) this repository.
+1. [Clone](https://github.com/TimEnglart/BlackBoard-Course-Downloader.git) this repository.
 2. Have Python 3 installed
 3. Install required modules using `pip install -r requirements.txt` or `python -m pip install -r requirements.txt`
 4. Navigate to downloaded repository and run command `python main.py`
