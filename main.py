@@ -15,7 +15,7 @@ def get_arguments():
     parser.add_argument("-u", "--username", help="Username to Login With")
     parser.add_argument("-p", "--password", help="Password to Login With")
     parser.add_argument("-s", "--site", help="Base Website Where Institute Black Board is Located")
-    parser.add_argument("-l", "--location", help="Local Path To Save Content", default='./')
+    parser.add_argument("-l", "--location", help="Local Path To Save Content", default='.')
     parser.add_argument("-c", "--course", help="Course ID to Download")
     # parser.add_argument("-d", "--dump", help="Print/Dump All Course Data", action="store_true")
     parser.add_argument("-r", "--record", help="Create A Manifest For Downloaded Data", action="store_true",
@@ -120,11 +120,6 @@ def main(args):
     return
 
 
-class SubSelector:
-    def __init__(self):
-        pass
-
-
 def navigate(selected_item, path: list = None, error_message=''):
     # Selecting New Item Based On Current Item
     global ARGS
@@ -155,12 +150,14 @@ def navigate(selected_item, path: list = None, error_message=''):
 
         # Going Forwards
         if sub_selection is not None:
-            if options.index(sub_selection) == 0:  # Content
+            selected_index = options.index(sub_selection)
+            if selected_index == 0:  # Content
                 next_item = navigation(options=selected_item.contents(), attribute='title', sort=True,
                                        title='Content')
-            else:  # Download
+            elif selected_index == 1:  # Download
                 selected_item.download_all_attachments(ARGS.location)  # Returns None
-
+            else:  # Go Back (Not Required)
+                next_item = None
         # Going Backwards
         if next_item is None:
             current_path(path)
@@ -172,12 +169,16 @@ def navigate(selected_item, path: list = None, error_message=''):
 
         # Going Forward
         if sub_selection is not None:
-            if options.index(sub_selection) == 0:  # Child Content
+            selected_index = options.index(sub_selection)
+            if selected_index == 0:  # Child Content
                 next_item = navigation(options=selected_item.children(), attribute='title', sort=True,
                                        title='Child')
-            else:  # Attachments
+            elif selected_index == 1:  # Attachments
                 next_item = navigation(options=selected_item.attachments(), attribute='file_name', sort=True,
                                        title='Attachment')
+            else:
+                next_item = None
+
             if next_item is None:
                 next_item = selected_item
                 current_path(path, '', -1)
