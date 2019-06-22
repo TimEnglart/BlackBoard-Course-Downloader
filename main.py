@@ -200,8 +200,10 @@ def navigate(selected_item, path: list = None, error_message=''):
     elif item_class_name == "BlackBoardAttachment":
         options = ["Download", "Back"]
         sub_selection = navigation(options=options, title="Option")
-        if options.index(sub_selection) == 0:  # Download
-            selected_item.download(ARGS.location)
+        if sub_selection is not None:
+            selected_index = options.index(sub_selection)
+            if selected_index == 0:  # Download
+                selected_item.download(ARGS.location)
 
         # Always Go Back to Attachments Parent
         current_path(path)
