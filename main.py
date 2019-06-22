@@ -17,7 +17,6 @@ def get_arguments():
     parser.add_argument("-s", "--site", help="Base Website Where Institute Black Board is Located")
     parser.add_argument("-l", "--location", help="Local Path To Save Content", default='.')
     parser.add_argument("-c", "--course", help="Course ID to Download")
-    # parser.add_argument("-d", "--dump", help="Print/Dump All Course Data", action="store_true")
     parser.add_argument("-r", "--record", help="Create A Manifest For Downloaded Data", action="store_true",
                         default=True)
     parser.add_argument("-V", "--verbose", help="Print Program Runtime Information", action="store_true")
@@ -26,7 +25,7 @@ def get_arguments():
     return parser.parse_args()
 
 
-def handle_arguments():
+def handle_arguments(debug=False):
     args = get_arguments()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     if args.version:
@@ -72,16 +71,18 @@ def handle_arguments():
         possible_site = config_content.get('site', '')
         if not args.ignore_input:
             args.site = input("Enter Black Board Host Website [{} or 'c' to Search]: ".format(possible_site))
+
         if ((not args.site or not args.site.strip()) and not possible_site and not args.ignore_input) or \
                 args.site == 'c':
-            args.site = navigation(default=BlackBoardInstitute,
-                                   options=BlackBoardInstitute.find(input("Institute Name: ")),
+            args.site = navigation(options=BlackBoardInstitute.find(input("Institute Name: ")),
                                    attribute='name', sort=True).display_lms_host
             if args.site is None:
                 print("No Site Supplied!")
                 sys.exit(0)
         else:
             args.site = possible_site
+        if debug:
+            args.institute = BlackBoardInstitute.find(args.site)[0]
 
     if args.record:
         pass
@@ -95,6 +96,8 @@ def handle_arguments():
         print("No GUI Currently Implemented")
         sys.exit(0)
     else:
+        if debug:
+            return args
         return main(args)
 
 
