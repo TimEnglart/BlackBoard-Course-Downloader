@@ -224,7 +224,6 @@ class BlackBoardCourse:
         contact_endpoint = client.site + (BlackBoardEndPoints.get_course(course_id) if
                                           client.api_version >= client.LearnAPIVersion("3400.8.0")
                                           else BlackBoardEndPoints.get_course_v1(course_id))
-        print(contact_endpoint)
         self._course_data = client.session.get(contact_endpoint).json()
         self.id = self.request_data('id')
         self.uuid = self.request_data('uuid')
