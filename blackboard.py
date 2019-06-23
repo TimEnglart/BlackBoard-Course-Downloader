@@ -124,7 +124,7 @@ class BlackBoardClient:
                 for course in course_data['mobileresponse']['courses']['course']:
                     existing_list.append(BlackBoardCourseXML(self, data=course))
 
-        # Verify Courses
+        # Verify Courses -- May Not Be Needed
         for course in existing_list:
             if course.id is None:
                 existing_list.remove(course)
@@ -295,11 +295,22 @@ class BlackBoardCourse:
         else:
             return specific_object.get(key, None)
 
-    def contents(self):
-        content_data = self.client.session.get(self.client.site + BlackBoardEndPoints.get_contents(self.id)).json()
+    def contents(self, existing_list=None, endpoint=None):
+        if existing_list is None:
+            existing_list = list()
+        if endpoint is None:
+            endpoint = BlackBoardEndPoints.get_contents(self.id)
+        content_data = self.client.session.get(self.client.site + endpoint).json()
         if "results" in content_data:
-            return [BlackBoardContent(self, json=content) for content in content_data["results"]]
-        return []
+            for content in content_data["results"]:
+                existing_list.append(BlackBoardContent(self, json=content))
+            if "paging" in content_data:
+                return self.contents(existing_list, content_data['paging']['nextPage'])
+        # Verify Content
+        # for content in existing_list:
+        #    if content.id is None:
+        #        existing_list.remove(content)
+        return existing_list
 
     def download_all_attachments(self, save_location='./'):
         # Content Iteration Loop
@@ -423,21 +434,44 @@ class BlackBoardContent:
         else:
             return specific_object.get(key, None)
 
-    def children(self):
+    def children(self, existing_list=None, endpoint=None):
+        if existing_list is None:
+            existing_list = list()
+        if endpoint is None:
+            endpoint = BlackBoardEndPoints.get_content_children(self.course.id, self.id)
         if self.has_children:
             children_content = self.client.session.get(
-                self.client.site + BlackBoardEndPoints.get_content_children(self.course.id, self.id)).json()
+                self.client.site + endpoint).json()
             if "results" in children_content:
-                return [BlackBoardContent(self.course, json=content) for content in children_content["results"]]
-        return []
+                for content in children_content["results"]:
+                    existing_list.append(BlackBoardContent(self.course, json=content))
+                if "paging" in children_content:
+                    return self.children(existing_list, children_content['paging']['nextPage'])
 
-    def attachments(self):
+        # Verify Children
+        # for content in existing_list:
+        #    if content.id is None:
+        #        existing_list.remove(content)
+        return existing_list
+
+    def attachments(self, existing_list=None, endpoint=None):
+        if existing_list is None:
+            existing_list = list()
+        if endpoint is None:
+            endpoint = BlackBoardEndPoints.get_file_attachments(self.course.id, self.id)
         if self.content_handler.id in ("resource/x-bb-file", "resource/x-bb-document", "resource/x-bb-assignment"):
             attachments = self.client.session.get(
-                self.client.site + BlackBoardEndPoints.get_file_attachments(self.course.id, self.id)).json()
+                self.client.site + endpoint).json()
             if "results" in attachments:
-                return [BlackBoardAttachment(self, content) for content in attachments["results"]]
-        return []
+                for content in attachments["results"]:
+                    existing_list.append(BlackBoardAttachment(self, content))
+                if "paging" in attachments:
+                    return self.attachments(existing_list, attachments['paging']['nextPage'])
+        # Verify Attachment
+        # for content in existing_list:
+        #    if content.id is None:
+        #        existing_list.remove(content)
+        return existing_list
 
     @staticmethod
     def content_type(content_handler):
