@@ -19,8 +19,7 @@ def test():
     institute_data = dict()
     institute_vars = vars(args.institute)
     for item in institute_vars:
-        if item != '_institute_data':
-            institute_data[item] = institute_vars[item]
+        institute_data[item] = institute_vars[item]
     # Client Data
     client_data = dict()
     client = BlackBoardClient(username=args.username, password=args.password, site=args.site)
@@ -42,9 +41,8 @@ def test():
     client.login()
     client_vars = vars(client)
     for item in client_vars:
-        if item != '_BlackBoardClient__password' and item != 'session':
+        if item != '_BlackBoardClient__password' and item != 'session' and item != 'institute':
             client_data[item] = client_vars[item]
-
     # Get Parent Course Data
     course_data = {
         'endpoint': '',
@@ -69,8 +67,7 @@ def test():
                     course_sub_data["course_endpoint"] = client.site + BlackBoardEndPoints.get_course(
                         course["courseId"])
                     for item in course_vars:
-                        if item != '_BlackBoardCourse__course_data':
-                            course_sub_data[item] = str(course_vars[item])
+                        course_sub_data[item] = str(course_vars[item])
                     course_data['courses'].append(course_sub_data)
                 except Exception as e:
                     course_data['courses'].append({'error': str(e)})
