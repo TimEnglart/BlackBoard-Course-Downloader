@@ -196,7 +196,7 @@ class BlackBoardCourse:
     def __init__(self, client: BlackBoardClient, course_id: str):
         self.client = client
         contact_endpoint = client.site + (BlackBoardEndPoints.get_course(course_id) if
-                                          client.api_version.major >= 3400 and client.api_version.minor >= 8
+                                          client.api_version.major >= 3500
                                           else BlackBoardEndPoints.get_course_v1(course_id))
         self._course_data = client.session.get(contact_endpoint).json()
         self.id = self.request_data('id')
