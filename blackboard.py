@@ -624,7 +624,7 @@ class BlackBoardContentXML:
             if type(self.children["map-item"]) is list:
                 return [BlackBoardContentXML(self.course, data=content) for content in self.children["map-item"]]
             elif type(self.children["map-item"]) is dict:
-                return BlackBoardContentXML(self.course, data=self.children["map-item"])
+                return [BlackBoardContentXML(self.course, data=self.children["map-item"])]
         return []
 
     # TODO: Figure Out if I Want Separate Attachment Class Like With API
@@ -634,7 +634,7 @@ class BlackBoardContentXML:
                 if type(self.attachments['attachment']) is list:
                     return [BlackBoardAttachmentXML(self, content) for content in self.attachments['attachment']]
                 elif type(self.attachments['attachment']) is dict:
-                    return BlackBoardAttachmentXML(self, self.attachments['attachment'])
+                    return [BlackBoardAttachmentXML(self, self.attachments['attachment'])]
         return []
 
 

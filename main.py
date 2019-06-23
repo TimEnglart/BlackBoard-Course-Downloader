@@ -109,6 +109,10 @@ def main(args):
     ARGS = args
     bbc = BlackBoardClient(username=args.username, password=args.password, site=args.site)
     if bbc.login():
+        if not bbc.use_rest_api:
+            input("Your Blackboard Learn Service Doesnt Support the use of the rest API.\nXML request development is "
+                  "currently being worked on and should be available soon")
+            sys.exit(0)
         save_config(args)
         if args.mass_download:
             courses = bbc.courses()  # get all Courses
