@@ -11,7 +11,6 @@ import json
 import getpass
 import main
 
-
 def test():
     args = main.handle_arguments(True)
     session = requests.Session()
@@ -41,7 +40,7 @@ def test():
     client.login()
     client_vars = vars(client)
     for item in client_vars:
-        if item != '_BlackBoardClient__password' and item != 'session' and item != 'institute':
+        if item not in ('_BlackBoardClient__password', 'session', 'institute', 'api_version'):
             client_data[item] = client_vars[item]
     # Get Parent Course Data
     course_data = {
