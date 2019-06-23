@@ -143,6 +143,32 @@ class BlackBoardClient:
             self.minor = int(self._raw[1])
             self.patch = int(self._raw[2])
 
+        def _comparable(self):
+            filled = []
+            for point in str(self).split("."):
+                filled.append(point.zfill(8))
+            return tuple(filled)
+
+        def __str__(self):
+            return "{}.{}.{}".format(self.major, self.minor, self.patch)
+
+        def __lt__(self, other):
+            return self._comparable() < other._comparable()
+
+        def __le__(self, other):
+            return self._comparable() <= other._comparable()
+
+        def __eq__(self, other):
+            return self._comparable() == other._comparable()
+
+        def __ne__(self, other):
+            return self._comparable() != other._comparable()
+
+        def __gt__(self, other):
+            return self._comparable() > other._comparable()
+
+        def __ge__(self, other):
+            return self._comparable() >= other._comparable()
 
 
 class BlackBoardEndPoints:
@@ -196,8 +222,9 @@ class BlackBoardCourse:
     def __init__(self, client: BlackBoardClient, course_id: str):
         self.client = client
         contact_endpoint = client.site + (BlackBoardEndPoints.get_course(course_id) if
-                                          client.api_version.major >= 3400 and client.api_version.minor >= 8
+                                          client.api_version >= client.LearnAPIVersion("3400.8.0")
                                           else BlackBoardEndPoints.get_course_v1(course_id))
+        print(contact_endpoint)
         self._course_data = client.session.get(contact_endpoint).json()
         self.id = self.request_data('id')
         self.uuid = self.request_data('uuid')
