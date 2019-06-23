@@ -125,9 +125,9 @@ class BlackBoardClient:
                     existing_list.append(BlackBoardCourseXML(self, data=course))
 
         # Verify Courses -- May Not Be Needed
-        for course in existing_list:
-            if course.id is None:
-                existing_list.remove(course)
+        # for course in existing_list:
+        #     if course.id is None:
+        #         existing_list.remove(course)
         return existing_list
 
     def __str__(self):
@@ -578,8 +578,7 @@ class BlackBoardCourseXML:
             if content.link_type == "resource/x-bb-folder":
                 path += ("/" + content.name)
             for attachment in content.get_attachments():
-                print("Would Download: {}".format(str(attachment["@name"])))
-                # attachment.download(path)
+                attachment.download(path)
             if content.children is not None:
                 for child in content.get_children():
                     iterate_with_path(child, path)
@@ -680,7 +679,7 @@ class BlackBoardAttachmentXML:
         self.__attachment_data = attachment_data
         self.name = attachment_data['@name']
         self.url = attachment_data['@url']
-        self.link_label = attachment_data['@linkLable']
+        self.link_label = attachment_data['@linkLabel']
         self.modified_date = attachment_data['@modifiedDate']
 
     def __str__(self):
@@ -691,7 +690,7 @@ class BlackBoardAttachmentXML:
 
     def download(self, location=None, **kwargs):
         download_location = ("./{}" if location is None else location + "/{}").format(self.link_label)
-        download = self.client.session.get(self.client.institute.b2_url + self.url)
+        download = self.client.session.get(self.client.institute.display_lms_host + self.url)
         if download.status_code == 302:
             print("File Located at: {}".format(download.headers.get("Location", "")))
             # Navigate to Location
