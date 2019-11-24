@@ -526,7 +526,10 @@ class BlackBoardAttachment:
 
 
 def _to_date(date_string):
-    return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f%z')
+    try:
+        return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f%z')
+    except:
+        return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%fZ')
 
 
 # XML Black Board Mobile Endpoint Support
