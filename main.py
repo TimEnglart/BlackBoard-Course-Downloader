@@ -37,6 +37,7 @@ def handle_arguments(debug=False):
         try:
             with open(args.config) as json_file:
                 config_content = json.load(json_file)
+                args.additional_courses = config_content.get("additionalCourses", [])
         except IOError:
             print("Unable to Read File at Location: {}".format(args.config))
         except json.JSONDecodeError:
@@ -116,6 +117,8 @@ def main(args):
         save_config(args)
         if args.mass_download:
             courses = bbc.courses()  # get all Courses
+            for course in ARGS.additional_courses:
+                courses.appened(BlackBoardCourse(bbc, course))
             for course in courses:
                 if args.course is None or course.id == args.course:  # Download only Specified Course
                     course.download_all_attachments(ARGS.location)
@@ -142,9 +145,12 @@ def navigate(selected_item, path: list = None, error_message=''):
     error_message = ''
     item_class_name = type(selected_item).__name__
     if item_class_name == "BlackBoardClient":
+        courses = selected_item.courses()
+        for course in ARGS.additional_courses:
+            courses.appened(BlackBoardCourse(selected_item, course))
 
         # Going Forwards
-        next_item = navigation(options=selected_item.courses(), attribute='name', sort=True, title='Course')
+        next_item = navigation(options=courses, attribute='name', sort=True, title='Course')
 
         # Going Backwards
         if next_item is None:
@@ -262,7 +268,8 @@ def save_config(args):
     config = {
         'username': args.username,
         # 'password': args.password,
-        'site': args.site
+        'site': args.site,
+        'additionalCourses': []
     }
     with open(args.config, 'w') as save:
         json.dump(config, save)
