@@ -269,7 +269,7 @@ def save_config(args):
         'username': args.username,
         # 'password': args.password,
         'site': args.site,
-        'additionalCourses': []
+        'additionalCourses': args.additional_courses
     }
     with open(args.config, 'w') as save:
         json.dump(config, save)
