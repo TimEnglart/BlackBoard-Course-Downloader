@@ -147,7 +147,7 @@ def navigate(selected_item, path: list = None, error_message=''):
     if item_class_name == "BlackBoardClient":
         courses = selected_item.courses()
         for course in ARGS.additional_courses:
-            courses.appened(BlackBoardCourse(selected_item, course))
+            courses.append(BlackBoardCourse(selected_item, course))
 
         # Going Forwards
         next_item = navigation(options=courses, attribute='name', sort=True, title='Course')
