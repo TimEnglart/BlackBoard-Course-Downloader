@@ -9,19 +9,27 @@ import getpass
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument("-v", "--version", help="Displays Application Version", action="store_true")
-    parser.add_argument("-g", "--gui", help="Use GUI instead of CLI", action="store_true")
-    parser.add_argument("-m", "--mass-download", help="Download All Course Documents", action="store_true")
+    parser.add_argument(
+        "-v", "--version", help="Displays Application Version", action="store_true")
+    parser.add_argument(
+        "-g", "--gui", help="Use GUI instead of CLI", action="store_true")
+    parser.add_argument("-m", "--mass-download",
+                        help="Download All Course Documents", action="store_true")
     parser.add_argument("-u", "--username", help="Username to Login With")
     parser.add_argument("-p", "--password", help="Password to Login With")
-    parser.add_argument("-s", "--site", help="Base Website Where Institute Black Board is Located")
-    parser.add_argument("-l", "--location", help="Local Path To Save Content", default='.')
+    parser.add_argument(
+        "-s", "--site", help="Base Website Where Institute Black Board is Located")
+    parser.add_argument("-l", "--location",
+                        help="Local Path To Save Content", default='.')
     parser.add_argument("-c", "--course", help="Course ID to Download")
     parser.add_argument("-r", "--record", help="Create A Manifest For Downloaded Data", action="store_true",
                         default=True)
-    parser.add_argument("-V", "--verbose", help="Print Program Runtime Information", action="store_true")
-    parser.add_argument("-C", "--config", help="Location of Configuration File", default='./config.json')
-    parser.add_argument("-i", "--ignore-input", help="Ignore Input at Runtime", action="store_true")
+    parser.add_argument(
+        "-V", "--verbose", help="Print Program Runtime Information", action="store_true")
+    parser.add_argument(
+        "-C", "--config", help="Location of Configuration File", default='./config.json')
+    parser.add_argument("-i", "--ignore-input",
+                        help="Ignore Input at Runtime", action="store_true")
     return parser.parse_args()
 
 
@@ -37,7 +45,6 @@ def handle_arguments(debug=False):
         try:
             with open(args.config) as json_file:
                 config_content = json.load(json_file)
-                args.additional_courses = config_content.get("additionalCourses", [])
         except IOError:
             print("Unable to Read File at Location: {}".format(args.config))
         except json.JSONDecodeError:
@@ -48,7 +55,8 @@ def handle_arguments(debug=False):
     if args.username is None:
         possible_username = config_content.get('username', '')
         if not args.ignore_input:
-            args.username = input("Enter Username [{}]: ".format(possible_username))
+            args.username = input(
+                "Enter Username [{}]: ".format(possible_username))
         if not args.username or not args.username.strip():
             if possible_username:
                 args.username = possible_username
@@ -71,7 +79,8 @@ def handle_arguments(debug=False):
     if args.site is None:
         possible_site = config_content.get('site', '')
         if not args.ignore_input:
-            args.site = input("Enter Black Board Host Website [{} or 'c' to Search]: ".format(possible_site))
+            args.site = input(
+                "Enter Black Board Host Website [{} or 'c' to Search]: ".format(possible_site))
 
         if ((not args.site or not args.site.strip()) and not possible_site and not args.ignore_input) or \
                 args.site == 'c':
@@ -90,6 +99,7 @@ def handle_arguments(debug=False):
 
     # if args.dump:
     #    pass
+    args.additional_courses = config_content.get("additionalCourses", [])
 
     # Run Actual Program
     if args.gui:
@@ -108,7 +118,8 @@ ARGS = object()
 def main(args):
     global ARGS
     ARGS = args
-    bbc = BlackBoardClient(username=args.username, password=args.password, site=args.site)
+    bbc = BlackBoardClient(username=args.username,
+                           password=args.password, site=args.site)
     if bbc.login():
         if not bbc.use_rest_api:
             input("Your Blackboard Learn Service Doesnt Support the use of the rest API.\nXML request development is "
@@ -141,7 +152,8 @@ def navigate(selected_item, path: list = None, error_message=''):
         path = []
     current_path(path, str(selected_item))
 
-    print("{}\n{}".format('/'.join(path), "Error: " + error_message + "\n" if error_message else ""))
+    print("{}\n{}".format('/'.join(path), "Error: " +
+                          error_message + "\n" if error_message else ""))
     error_message = ''
     item_class_name = type(selected_item).__name__
     if item_class_name == "BlackBoardClient":
@@ -150,7 +162,8 @@ def navigate(selected_item, path: list = None, error_message=''):
             courses.append(BlackBoardCourse(selected_item, course))
 
         # Going Forwards
-        next_item = navigation(options=courses, attribute='name', sort=True, title='Course')
+        next_item = navigation(
+            options=courses, attribute='name', sort=True, title='Course')
 
         # Going Backwards
         if next_item is None:
@@ -168,7 +181,8 @@ def navigate(selected_item, path: list = None, error_message=''):
                 next_item = navigation(options=selected_item.contents(), attribute='title', sort=True,
                                        title='Content')
             elif selected_index == 1:  # Download
-                selected_item.download_all_attachments(ARGS.location)  # Returns None
+                selected_item.download_all_attachments(
+                    ARGS.location)  # Returns None
             else:  # Go Back (Not Required)
                 next_item = None
         # Going Backwards
@@ -177,7 +191,8 @@ def navigate(selected_item, path: list = None, error_message=''):
             next_item = selected_item.client
 
     elif item_class_name == "BlackBoardContent":
-        options = ["Get Child Content", "Get Attachments"]  # Get Child Content or Attachments
+        # Get Child Content or Attachments
+        options = ["Get Child Content", "Get Attachments"]
         sub_selection = navigation(options=options, title="Option")
 
         # Going Forward
@@ -200,7 +215,8 @@ def navigate(selected_item, path: list = None, error_message=''):
         # Going Backwards
         if next_item is None:
             current_path(path)
-            if selected_item.parent_id is None:  # Has No Parent Content (Return Course)
+            # Has No Parent Content (Return Course)
+            if selected_item.parent_id is None:
                 next_item = selected_item.course
             else:  # Has Parent Content (Return Content)
                 parent_content = BlackBoardContent(selected_item.course, course_id=selected_item.course.id,
@@ -217,8 +233,10 @@ def navigate(selected_item, path: list = None, error_message=''):
 
         # Always Go Back to Attachments Parent
         current_path(path)
-        next_item = selected_item.content  # Originally was navigate(selected_item.content)
-        error_message = "Successfully Downloaded: {}".format(selected_item.file_name)
+        # Originally was navigate(selected_item.content)
+        next_item = selected_item.content
+        error_message = "Successfully Downloaded: {}".format(
+            selected_item.file_name)
 
     if next_item is not None:
         # current_path(path)
@@ -237,12 +255,14 @@ def navigation(**kwargs):
     sort = kwargs.get('sort', False)
 
     if sort and attribute is not None:
-        options = sorted(options, key=lambda element: getattr(element, attribute))
+        options = sorted(
+            options, key=lambda element: getattr(element, attribute))
     if not options:
         return None  # No Options to Chose From
     while True:
         for i in range(len(options)):
-            print("[{}] {}".format(i + 1, getattr(options[i], attribute) if attribute is not None else str(options[i])))
+            print("[{}] {}".format(i + 1, getattr(options[i], attribute)
+                                   if attribute is not None else str(options[i])))
         choice = input(input_text + "\n")
         if choice.isalpha():
             return None  # No Choice Made
