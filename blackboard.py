@@ -492,6 +492,7 @@ class BlackBoardAttachment:
     def __init__(self, content: BlackBoardContent, file_attachment: dict):
         self.id = file_attachment.get('id', None)
         self.file_name = file_attachment.get('fileName', None)
+        self.file_name_safe = re.sub('[<>:"/\\|?*]', '', self.file_name) if self.file_name is not None else ''
         self.mime_type = file_attachment.get('mimeType', None)
         self.client = content.client
         self.course = content.course
@@ -504,7 +505,7 @@ class BlackBoardAttachment:
         return str(self)
 
     def download(self, location=None, **kwargs):
-        download_location = ("./{}" if location is None else location + "/{}").format(self.file_name)
+        download_location = ("./{}" if location is None else location + "/{}").format(self.file_name_safe)
         download = self.client.session.get(
             self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id,
                                                                                 self.id))
@@ -522,7 +523,7 @@ class BlackBoardAttachment:
                 return
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(self.file_name, location))
+            print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
 
 
 def _to_date(date_string):
@@ -683,6 +684,7 @@ class BlackBoardAttachmentXML:
         self.name = attachment_data['@name']
         self.url = attachment_data['@url']
         self.link_label = attachment_data['@linkLabel']
+        self.link_label_safe = re.sub('[<>:"/\\|?*]', '', self.link_label) if self.link_label is not None else ''
         self.modified_date = attachment_data['@modifiedDate']
 
     def __str__(self):
@@ -692,7 +694,7 @@ class BlackBoardAttachmentXML:
         return str(self)
 
     def download(self, location=None, **kwargs):
-        download_location = ("./{}" if location is None else location + "/{}").format(self.link_label)
+        download_location = ("./{}" if location is None else location + "/{}").format(self.link_label_safe)
         download = self.client.session.get(self.client.institute.display_lms_host + self.url)
         if download.status_code == 302:
             print("File Located at: {}".format(download.headers.get("Location", "")))
@@ -708,4 +710,4 @@ class BlackBoardAttachmentXML:
                 return
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(self.link_label, location))
+            print("Downloaded: {}\nto: {}\n".format(self.link_label_safe, location))
