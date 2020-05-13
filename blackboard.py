@@ -1,14 +1,15 @@
 import os
 import re
 import requests
-import datetime
+from datetime import datetime
 import xmltodict
-
+from urllib.parse import unquote
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
 
 # TODO: Use Similar Parameters Layouts for All Classes
 # TODO: Add Institute Property to Client Class
+
 
 class BlackBoardInstitute:
     def __init__(self, **kwargs):
@@ -26,23 +27,34 @@ class BlackBoardInstitute:
         self.id = self._institute_data.get('id', None)
         self.b2_url = self._institute_data.get('b2_url', None)
         self.country = self._institute_data.get('country', None)
-        self.has_community_system = self._institute_data.get('has_community_system', None)
+        self.has_community_system = self._institute_data.get(
+            'has_community_system', None)
         self.username_label = self._institute_data.get('username_label', None)
-        self.has_mobile_central = self._institute_data.get('has_mobile_central', None)
+        self.has_mobile_central = self._institute_data.get(
+            'has_mobile_central', None)
         self.http_auth = self._institute_data.get('http_auth', None)
-        self.from_people_soft = self._institute_data.get('from_people_soft', None)
+        self.from_people_soft = self._institute_data.get(
+            'from_people_soft', None)
         self.client_id = self._institute_data.get('client_id', None)
-        self.can_has_ssl_login = self._institute_data.get('can_has_ssl_login', None)
-        self.display_lms_host = self._institute_data.get('display_lms_host', None)
+        self.can_has_ssl_login = self._institute_data.get(
+            'can_has_ssl_login', None)
+        self.display_lms_host = self._institute_data.get(
+            'display_lms_host', None)
         self.access = self._institute_data.get('access', None)
-        self.has_planner_license = self._institute_data.get('has_planner_license', None)
-        self.prospective_student_access = self._institute_data.get('prospective_student_access', None)
-        self.preferred_contact_methods = self._institute_data.get('preferred_contact_methods', None)
-        self.has_offline_license = self._institute_data.get('has_offline_license', None)
-        self.people_soft_institution_id = self._institute_data.get('people_soft_institution_id', None)
+        self.has_planner_license = self._institute_data.get(
+            'has_planner_license', None)
+        self.prospective_student_access = self._institute_data.get(
+            'prospective_student_access', None)
+        self.preferred_contact_methods = self._institute_data.get(
+            'preferred_contact_methods', None)
+        self.has_offline_license = self._institute_data.get(
+            'has_offline_license', None)
+        self.people_soft_institution_id = self._institute_data.get(
+            'people_soft_institution_id', None)
         self.euse = self._institute_data.get('euse', None)
         self.euse_label = self._institute_data.get('euse_label', None)
-        self.force_web_login_polling = self._institute_data.get('force_web_login_polling', None)
+        self.force_web_login_polling = self._institute_data.get(
+            'force_web_login_polling', None)
         self.gcm = self._institute_data.get('gcm', None)
 
     def __str__(self):
@@ -101,7 +113,8 @@ class BlackBoardClient:
                 self.user_id = response_xml['@userid']
                 self.batch_uid = response_xml['@batch_uid']
                 self.use_rest_api = response_xml['@use_learn_rest_api']
-                self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
+                self.api_version = self.LearnAPIVersion(
+                    response_xml['@learn_version'])
                 return True
         return False
 
@@ -114,7 +127,8 @@ class BlackBoardClient:
             course_data = self.session.get(self.site + endpoint).json()
             if "results" in course_data:
                 for course in course_data["results"]:
-                    existing_list.append(BlackBoardCourse(self, course["courseId"]))
+                    existing_list.append(
+                        BlackBoardCourse(self, course["courseId"]))
                 if "paging" in course_data:
                     return self.courses(existing_list, course_data['paging']['nextPage'])
         else:
@@ -122,7 +136,8 @@ class BlackBoardClient:
                 self.institute.b2_url + "enrollments?v=1&f=xml&ver=4.1.2&course_type=ALL&include_grades=false").text)
             if course_data['mobileresponse'] and course_data['mobileresponse']['@status'] == 'OK':
                 for course in course_data['mobileresponse']['courses']['course']:
-                    existing_list.append(BlackBoardCourseXML(self, data=course))
+                    existing_list.append(
+                        BlackBoardCourseXML(self, data=course))
 
         # Verify Courses -- May Not Be Needed
         # for course in existing_list:
@@ -222,7 +237,8 @@ class BlackBoardCourse:
     def __init__(self, client: BlackBoardClient, course_id: str):
         self.client = client
         contact_endpoint = client.site + (BlackBoardEndPoints.get_course(course_id) if
-                                          client.api_version >= client.LearnAPIVersion("3400.8.0")
+                                          client.api_version >= client.LearnAPIVersion(
+                                              "3400.8.0")
                                           else BlackBoardEndPoints.get_course_v1(course_id))
         self._course_data = client.session.get(contact_endpoint).json()
         self.id = self.request_data('id')
@@ -231,7 +247,8 @@ class BlackBoardCourse:
         self.data_source_id = self.request_data('dataSourceId')
         self.course_id = self.request_data('courseId')
         self.name = self.request_data('name')
-        self.name_safe = re.sub('[<>:"/\\|?*]', '-', self.name) if self.name is not None else ''
+        self.name_safe = re.sub('[<>:"/\\|?*]', '-',
+                                self.name) if self.name is not None else ''
         self.description = self.request_data('description')
         self.created = _to_date(self.request_data('created'))
         self.modified = _to_date(self.request_data('modified'))
@@ -262,7 +279,8 @@ class BlackBoardCourse:
             if not availability_4:
                 availability_4 = {}
             self.available = availability_4.get('available', None)
-            self.duration = BlackBoardCourse.Duration(availability_4.get('duration', None))
+            self.duration = BlackBoardCourse.Duration(
+                availability_4.get('duration', None))
 
     class Enrollment:
         def __init__(self, enrollment_0: dict):
@@ -300,7 +318,8 @@ class BlackBoardCourse:
             existing_list = list()
         if endpoint is None:
             endpoint = BlackBoardEndPoints.get_contents(self.id)
-        content_data = self.client.session.get(self.client.site + endpoint).json()
+        content_data = self.client.session.get(
+            self.client.site + endpoint).json()
         if "results" in content_data:
             for content in content_data["results"]:
                 existing_list.append(BlackBoardContent(self, json=content))
@@ -346,7 +365,8 @@ class BlackBoardContent:
         self.id = self.request_data('id')
         self.parent_id = self.request_data('parentId')
         self.title = self.request_data('title')
-        self.title_safe = re.sub('[<>:"/\\|?*]', '-', self.title) if self.title is not None else ''
+        self.title_safe = re.sub(
+            '[<>:"/\\|?*]', '-', self.title) if self.title is not None else ''
         self.body = self.request_data('body')
         self.description = self.request_data('description')
         self.created = _to_date(self.request_data('created'))
@@ -354,8 +374,10 @@ class BlackBoardContent:
         self.has_children = self.request_data('hasChildren')
         self.has_gradebook_columns = self.request_data('hasGradebookColumns')
         self.has_associated_groups = self.request_data('hasAssociatedGroups')
-        self.availability = self.Availability(self.request_data('availability'))  # Class
-        self.content_handler = self.ContentHandler(self.request_data('contentHandler'))  # Class
+        self.availability = self.Availability(
+            self.request_data('availability'))  # Class
+        self.content_handler = self.ContentHandler(
+            self.request_data('contentHandler'))  # Class
 
     def __str__(self):
         return "{} ({})".format(self.title, self.id)
@@ -369,7 +391,8 @@ class BlackBoardContent:
                 availability_0 = {}
             self.available = availability_0.get('available', None)
             self.duration = availability_0.get('allowGuests', None)
-            self.duration = BlackBoardContent.AdaptiveRelease(availability_0.get('adaptiveRelease', None))
+            self.duration = BlackBoardContent.AdaptiveRelease(
+                availability_0.get('adaptiveRelease', None))
 
     class AdaptiveRelease:
         def __init__(self, adaptive_release: dict):
@@ -389,7 +412,8 @@ class BlackBoardContent:
             self.target_type = content_handler.get('targetType', None)
             self.discussion_id = content_handler.get('discussionId', None)
             self.discussion_id = content_handler.get('discussionId', None)
-            self.custom_parameters = content_handler.get('customParameters', None)
+            self.custom_parameters = content_handler.get(
+                'customParameters', None)
             self.file = self.BBFile(content_handler.get('file', None))
             self.assessment_id = content_handler.get('customParameters', None)
             self.grade_column_id = content_handler.get('gradeColumnId ', None)
@@ -411,7 +435,8 @@ class BlackBoardContent:
                 self.upload_id = content_handler.get('uploadId', None)
                 self.file_name = content_handler.get('fileName', None)
                 self.mime_type = content_handler.get('mimeType', None)
-                self.duplicate_file_handling = self.FileHandling(content_handler.get('duplicateFileHandling', None))
+                self.duplicate_file_handling = self.FileHandling(
+                    content_handler.get('duplicateFileHandling', None))
 
             class FileHandling:
                 def __init__(self, content_handler: dict):
@@ -438,13 +463,15 @@ class BlackBoardContent:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
-            endpoint = BlackBoardEndPoints.get_content_children(self.course.id, self.id)
+            endpoint = BlackBoardEndPoints.get_content_children(
+                self.course.id, self.id)
         if self.has_children:
             children_content = self.client.session.get(
                 self.client.site + endpoint).json()
             if "results" in children_content:
                 for content in children_content["results"]:
-                    existing_list.append(BlackBoardContent(self.course, json=content))
+                    existing_list.append(
+                        BlackBoardContent(self.course, json=content))
                 if "paging" in children_content:
                     return self.children(existing_list, children_content['paging']['nextPage'])
 
@@ -458,7 +485,8 @@ class BlackBoardContent:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
-            endpoint = BlackBoardEndPoints.get_file_attachments(self.course.id, self.id)
+            endpoint = BlackBoardEndPoints.get_file_attachments(
+                self.course.id, self.id)
         if self.content_handler.id in ("resource/x-bb-file", "resource/x-bb-document", "resource/x-bb-assignment"):
             attachments = self.client.session.get(
                 self.client.site + endpoint).json()
@@ -492,7 +520,8 @@ class BlackBoardAttachment:
     def __init__(self, content: BlackBoardContent, file_attachment: dict):
         self.id = file_attachment.get('id', None)
         self.file_name = file_attachment.get('fileName', None)
-        self.file_name_safe = re.sub('[<>:"/\\|?*]', '', self.file_name) if self.file_name is not None else ''
+        self.file_name_safe = unquote(re.sub(
+            '[<>:"/\\|?*]', '', self.file_name)) if self.file_name is not None else ''
         self.mime_type = file_attachment.get('mimeType', None)
         self.client = content.client
         self.course = content.course
@@ -505,12 +534,14 @@ class BlackBoardAttachment:
         return str(self)
 
     def download(self, location=None, **kwargs):
-        download_location = ("./{}" if location is None else location + "/{}").format(self.file_name_safe)
+        download_location = (
+            "./{}" if location is None else location + "/{}").format(self.file_name_safe)
         download = self.client.session.get(
             self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id,
                                                                                 self.id))
         if download.status_code == 302:
-            print("File Located at: {}".format(download.headers.get("Location", "")))
+            print("File Located at: {}".format(
+                download.headers.get("Location", "")))
             # Navigate to Location
             # TODO: Add Redirect Navigation
         elif download.status_code == 200:
@@ -523,14 +554,18 @@ class BlackBoardAttachment:
                 return
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
+            print("Downloaded: {}\nto: {}\n".format(
+                self.file_name_safe, location))
 
 
 def _to_date(date_string):
-    try:
-        return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f%z')
-    except:
-        return None if date_string is None else datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%fZ')
+    if date_string is None:
+        return None
+    else:
+        try:
+            return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f%z')
+        except:
+            return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%fZ')
 
 
 # XML Black Board Mobile Endpoint Support
@@ -555,10 +590,13 @@ class BlackBoardCourseXML:
         self.last_access_date = self._course_data.get('@lastAccessDate', None)
         self.enrollment_date = self._course_data.get('@enrollmentdate', None)
         self.role_identifier = self._course_data.get('@roleIdentifier', None)
-        self.start_date_duration = self._course_data.get('@startDateDuration', None)
-        self.end_date_duration = self._course_data.get('@endDateDuration', None)
+        self.start_date_duration = self._course_data.get(
+            '@startDateDuration', None)
+        self.end_date_duration = self._course_data.get(
+            '@endDateDuration', None)
         self.duration_type = self._course_data.get('@durationType', None)
-        self.days_from_the_date_of_enrollment = self._course_data.get('@daysFromTheDateOfEnrollment', None)
+        self.days_from_the_date_of_enrollment = self._course_data.get(
+            '@daysFromTheDateOfEnrollment', None)
 
     def __str__(self):
         return "{} ({})".format(self.name, self.bbid)
@@ -614,8 +652,10 @@ class BlackBoardContentXML:
         self.unread_key = self._content_data.get('@unreadKey', None)
         self.can_mark_as_read = self._content_data.get('@canMarkAsRead', None)
         self.content_id = self._content_data.get('@contentid', None)
-        self.can_post_content_item = self._content_data.get('@canpostcontentitem', None)
-        self.can_attach_files = self._content_data.get('@canattachfiles.2.5', None)
+        self.can_post_content_item = self._content_data.get(
+            '@canpostcontentitem', None)
+        self.can_attach_files = self._content_data.get(
+            '@canattachfiles.2.5', None)
         self.date_modified = self._content_data.get('@datemodified', None)
         self.created_date = self._content_data.get('@createdDate', None)
         self.children = self._content_data.get('children', None)
@@ -638,16 +678,20 @@ class BlackBoardContentXML:
         self.due_today = self._content_data.get('@dueToday', None)
         self.past_due = self._content_data.get('@pastDue', None)
         self.due_tomorrow = self._content_data.get('@dueTomorrow', None)
-        self.due_after_tomorrow = self._content_data.get('@dueAfterTomorrow', None)
-        self.submission_number = self._content_data.get('@submissionNumber', None)
-        self.max_number_of_submission = self._content_data.get('@maxNumberOfSubmission', None)
+        self.due_after_tomorrow = self._content_data.get(
+            '@dueAfterTomorrow', None)
+        self.submission_number = self._content_data.get(
+            '@submissionNumber', None)
+        self.max_number_of_submission = self._content_data.get(
+            '@maxNumberOfSubmission', None)
         self.items_due_today = self._content_data.get('@itemsDueToday', None)
         self.items_past_due = self._content_data.get('@itemsPastDue', None)
         self.total_items = self._content_data.get('@totalItems', None)
         self.linked_folder = self._content_data.get('@linkedFolder', None)
         self.type = self._content_data.get('@type', None)
         self.assessment_type = self._content_data.get('@assessment_type', None)
-        self.is_assessment_mobile_friendly = self._content_data.get('@is_assessment_mobile_friendly', None)
+        self.is_assessment_mobile_friendly = self._content_data.get(
+            '@is_assessment_mobile_friendly', None)
 
     def __str__(self):
         return "{} ({})".format(self.name, self.content_id)
@@ -684,7 +728,8 @@ class BlackBoardAttachmentXML:
         self.name = attachment_data['@name']
         self.url = attachment_data['@url']
         self.link_label = attachment_data['@linkLabel']
-        self.link_label_safe = re.sub('[<>:"/\\|?*]', '', self.link_label) if self.link_label is not None else ''
+        self.link_label_safe = re.sub(
+            '[<>:"/\\|?*]', '', self.link_label) if self.link_label is not None else ''
         self.modified_date = attachment_data['@modifiedDate']
 
     def __str__(self):
@@ -694,10 +739,13 @@ class BlackBoardAttachmentXML:
         return str(self)
 
     def download(self, location=None, **kwargs):
-        download_location = ("./{}" if location is None else location + "/{}").format(self.link_label_safe)
-        download = self.client.session.get(self.client.institute.display_lms_host + self.url)
+        download_location = (
+            "./{}" if location is None else location + "/{}").format(self.link_label_safe)
+        download = self.client.session.get(
+            self.client.institute.display_lms_host + self.url)
         if download.status_code == 302:
-            print("File Located at: {}".format(download.headers.get("Location", "")))
+            print("File Located at: {}".format(
+                download.headers.get("Location", "")))
             # Navigate to Location
             # TODO: Add Redirect Navigation
         elif download.status_code == 200:
@@ -710,4 +758,5 @@ class BlackBoardAttachmentXML:
                 return
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(self.link_label_safe, location))
+            print("Downloaded: {}\nto: {}\n".format(
+                self.link_label_safe, location))
