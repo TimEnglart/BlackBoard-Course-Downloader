@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import threading
 from datetime import datetime
 import xmltodict
 from urllib.parse import unquote
@@ -331,7 +332,7 @@ class BlackBoardCourse:
         #        existing_list.remove(content)
         return existing_list
 
-    def download_all_attachments(self, save_location='./'):
+    def download_all_attachments(self, save_location='./', threaded=False):
         # Content Iteration Loop
         def iterate_with_path(content, path=None):
             if path is None:
@@ -339,7 +340,11 @@ class BlackBoardCourse:
             if content.content_handler.id == "resource/x-bb-folder":
                 path += ("/" + content.title_safe)
             for attachment in content.attachments():
-                attachment.download(path)
+                # attachment.download(path)
+                if(threaded):
+                    attachment.thread_download(path)
+                else:
+                    attachment.download(path)
             if content.has_children:
                 for child in content.children():
                     iterate_with_path(child, path)
@@ -526,12 +531,18 @@ class BlackBoardAttachment:
         self.client = content.client
         self.course = content.course
         self.content = content
+        self.threads = list()
 
     def __str__(self):
         return "{} ({}) - {}".format(self.file_name, self.id, self.mime_type)
 
     def __repr__(self):
         return str(self)
+
+    def thread_download(self, location=None, **kwargs):
+        t = threading.Thread(target=self.download, kwargs={'location': location})
+        self.threads.append(t)
+        t.start()
 
     def download(self, location=None, **kwargs):
         download_location = (
