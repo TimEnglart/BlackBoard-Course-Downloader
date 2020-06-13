@@ -30,6 +30,7 @@ def get_arguments():
         "-C", "--config", help="Location of Configuration File", default='./config.json')
     parser.add_argument("-i", "--ignore-input",
                         help="Ignore Input at Runtime", action="store_true")
+    parser.add_argument("-t", "--threaded" , help="Enable multi-threaded downloading", action="store_true")
     return parser.parse_args()
 
 
@@ -132,7 +133,7 @@ def main(args):
                 courses.appened(BlackBoardCourse(bbc, course))
             for course in courses:
                 if args.course is None or course.id == args.course:  # Download only Specified Course
-                    course.download_all_attachments(ARGS.location)
+                    course.download_all_attachments(ARGS.location, ARGS.threaded)
         else:
             navigate(bbc)
     else:
