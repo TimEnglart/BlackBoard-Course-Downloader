@@ -2,6 +2,7 @@ import os
 import re
 import requests
 import threading
+from concurrent import futures
 from datetime import datetime
 import xmltodict
 from urllib.parse import unquote
@@ -97,6 +98,8 @@ class BlackBoardClient:
         self.institute = kwargs.get('institute', BlackBoardInstitute())
         self.use_rest_api = True  # Can/Cannot Use The Learn Rest API
         self.api_version = self.LearnAPIVersion("0.0.0")
+        self.threadPool = futures.ThreadPoolExecutor(
+            max_workers=kwargs.get('thread_count', 4))
 
     # XML
     def login(self):
@@ -342,7 +345,7 @@ class BlackBoardCourse:
             for attachment in content.attachments():
                 # attachment.download(path)
                 if(threaded):
-                    attachment.thread_download(path)
+                    self.client.threadPool.submit(attachment.download, (path))
                 else:
                     attachment.download(path)
             if content.has_children:
@@ -540,9 +543,7 @@ class BlackBoardAttachment:
         return str(self)
 
     def thread_download(self, location=None, **kwargs):
-        t = threading.Thread(target=self.download, kwargs={'location': location})
-        self.threads.append(t)
-        t.start()
+        return threading.Thread(target=self.download, kwargs={'location': location})
 
     def download(self, location=None, **kwargs):
         download_location = (
