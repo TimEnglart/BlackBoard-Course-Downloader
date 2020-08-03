@@ -98,8 +98,7 @@ class BlackBoardClient:
         self.institute = kwargs.get('institute', BlackBoardInstitute())
         self.use_rest_api = True  # Can/Cannot Use The Learn Rest API
         self.api_version = self.LearnAPIVersion("0.0.0")
-        self.threadPool = futures.ThreadPoolExecutor(
-            max_workers=kwargs.get('thread_count', 4))
+        self.threadPool = DownloadQueue(kwargs.get('thread_count', 4))
 
     # XML
     def login(self):
@@ -272,6 +271,10 @@ class BlackBoardCourse:
         # V1 Attributes
         self.read_only = self.request_data('readOnly')
 
+
+        # Custom
+        self.num_active_downloads = 0
+
     def __str__(self):
         return "{} ({})".format(self.name, self.id)
 
@@ -343,9 +346,8 @@ class BlackBoardCourse:
             if content.content_handler.id == "resource/x-bb-folder":
                 path += ("/" + content.title_safe)
             for attachment in content.attachments():
-                # attachment.download(path)
                 if(threaded):
-                    self.client.threadPool.submit(attachment.download, (path))
+                    self.client.threadPool.enqueue(attachment.download, path, self.downloadCallback, self.id, attachment)
                 else:
                     attachment.download(path)
             if content.has_children:
@@ -353,9 +355,15 @@ class BlackBoardCourse:
                     iterate_with_path(child, path)
 
         # Content Iteration Start
-        for c in self.contents():
+        contents = self.contents()
+        for c in contents:
             iterate_with_path(c, "{}/{}".format(save_location, self.name_safe))
-        print("Downloaded All Attachments For Course: {}".format(self.name))
+
+    def downloadCallback(self, error_code, remaining_downloads, attachment):
+        if error_code != 0:
+            print(f"Failed to Download File: {attachment.file_name_safe}")
+        if remaining_downloads < 1:
+            print("Downloaded All Attachments For Course: {}".format(self.name))
 
 
 class BlackBoardContent:
@@ -542,15 +550,10 @@ class BlackBoardAttachment:
     def __repr__(self):
         return str(self)
 
-    def thread_download(self, location=None, **kwargs):
-        return threading.Thread(target=self.download, kwargs={'location': location})
-
-    def download(self, location=None, **kwargs):
-        download_location = (
-            "./{}" if location is None else location + "/{}").format(self.file_name_safe)
+    def download(self, location):
+        download_location = ("./{}" if location is None else location + "/{}").format(self.file_name_safe)
         download = self.client.session.get(
-            self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id,
-                                                                                self.id))
+            self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id, self.id))
         if download.status_code == 302:
             print("File Located at: {}".format(
                 download.headers.get("Location", "")))
@@ -561,13 +564,12 @@ class BlackBoardAttachment:
                 os.makedirs(location)
             if os.path.isfile(download_location):
                 # Check if Overwrite
-                print("File Exists No Download..")
-                # TODO: Make Manifest Option
+                print(f"{self.file_name_safe} - Already Exists @ {location}")
                 return
+                # TODO: Make Manifest Option
             with open(download_location, 'wb') as file_out:
                 file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(
-                self.file_name_safe, location))
+            print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
 
 
 def _to_date(date_string):
@@ -772,3 +774,24 @@ class BlackBoardAttachmentXML:
                 file_out.write(download.content)
             print("Downloaded: {}\nto: {}\n".format(
                 self.link_label_safe, location))
+
+
+class DownloadQueue(futures.ThreadPoolExecutor):
+    def __init__(self, threadCount):
+        super().__init__(max_workers=threadCount)
+        self.active_downloads = {}
+
+    def enqueue(self, fn, path, cb, courseId, attachment):
+        current_course_downloads = self.active_downloads.get(courseId, 0)
+        self.active_downloads[courseId] = current_course_downloads + 1
+        self.submit(self._fn_with_cb, *(fn, path, cb, courseId, attachment))
+
+    def _fn_with_cb(self, fn, path, cb, courseId, attachment):
+        error = 0
+        try:
+            fn(path)
+        except:
+            error = 1
+        self.active_downloads[courseId] -= 1
+        cb(error, self.active_downloads[courseId], attachment)
+        

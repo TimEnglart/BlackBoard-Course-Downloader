@@ -5,6 +5,7 @@ import sys
 import json
 import os
 import getpass
+import time
 
 
 def get_arguments():
@@ -136,8 +137,7 @@ def main(args):
                 courses.append(BlackBoardCourse(bbc, course))
             for course in courses:
                 if args.course is None or course.id == args.course:  # Download only Specified Course
-                    course.download_all_attachments(
-                        args.location, args.threaded)
+                    course.download_all_attachments(args.location, args.threaded)
         else:
             navigate(bbc)
     else:
