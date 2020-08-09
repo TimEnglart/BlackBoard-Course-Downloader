@@ -1,6 +1,5 @@
 # BlackBoard Course Downloader
 
-[![GitHub release](https://img.shields.io/github/release/TimEnglart/BlackBoard-Course-Downloader.svg?label=Latest%20Release)](https://github.com/TimEnglart/BlackBoard-Course-Downloader/releases)
 [![GitHub issues](https://img.shields.io/github/issues/TimEnglart/BlackBoard-Course-Downloader.svg?label=Issues)](https://github.com/TimEnglart/BlackBoard-Course-Downloader/issues)
 [![GitHub stars](https://img.shields.io/github/stars/TimEnglart/BlackBoard-Course-Downloader.svg?color=Gold&label=Stars)](https://github.com/TimEnglart/BlackBoard-Course-Downloader/stargazers)
 
@@ -24,11 +23,6 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 2. Have [Python 3](https://www.python.org/downloads/) installed
 3. Install required modules using `pip install -r requirements.txt` or `python -m pip install -r requirements.txt`
 4. Navigate to downloaded repository and run command `python main.py`
-
-##### Using Release (Windows Only)
-
-1. [Download the Latest Release](https://github.com/TimEnglart/BlackBoard-Course-Downloader/releases)
-2. Run downloaded executable
 
 ---
 
