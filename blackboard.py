@@ -6,6 +6,9 @@ from concurrent import futures
 from datetime import datetime
 import xmltodict
 from urllib.parse import unquote
+from colorama import Fore, init
+from typing import List, Dict, Tuple, Callable, Generic
+init()
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
 
@@ -66,7 +69,7 @@ class BlackBoardInstitute:
         return str(self)
 
     @staticmethod
-    def find(query):
+    def find(query) -> List['BlackBoardInstitute']:
         xml = xmltodict.parse(requests.get("https://mlcs.medu.com/api/b2_registration/match_schools/?",
                                            params={
                                                "q": query,
@@ -94,15 +97,15 @@ class BlackBoardClient:
         self.batch_uid = None
         if self.username is None or self.__password is None or self.site is None:
             raise Exception("Missing Username and/or Password and/or Site")
-
         self.institute = kwargs.get('institute', BlackBoardInstitute())
         self.use_rest_api = True  # Can/Cannot Use The Learn Rest API
         self.api_version = self.LearnAPIVersion("0.0.0")
-        self.threadPool = DownloadQueue(kwargs.get('thread_count', 4))
+        self.thread_pool = DownloadQueue(kwargs.get('thread_count', 4))
+        self.save_location = kwargs.get('save_location', '.')
 
     # XML
-    def login(self):
-        if self.institute is not None:
+    def login(self) -> bool:
+        if self.institute is None or self.institute.b2_url is None:
             login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
         else:
             login_endpoint = self.institute.b2_url  # ?v=2&f=xml&ver=4.1.2
@@ -121,7 +124,7 @@ class BlackBoardClient:
                 return True
         return False
 
-    def courses(self, existing_list=None, endpoint=None):
+    def courses(self, existing_list=None, endpoint=None) -> List['BlackBoardCourse']:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
@@ -148,6 +151,9 @@ class BlackBoardClient:
         #         existing_list.remove(course)
         return existing_list
 
+    def public_endpoint_avaliable(self) -> bool:
+        return self.session.get(self.site + "/learn/api/public/v1/system/version").ok
+
     def __str__(self):
         return "{}".format(self.username)
 
@@ -161,78 +167,78 @@ class BlackBoardClient:
             self.minor = int(self._raw[1])
             self.patch = int(self._raw[2])
 
-        def _comparable(self):
+        def _comparable(self) -> Tuple[str]:
             filled = []
             for point in str(self).split("."):
                 filled.append(point.zfill(8))
             return tuple(filled)
 
-        def __str__(self):
+        def __str__(self) -> str:
             return "{}.{}.{}".format(self.major, self.minor, self.patch)
 
-        def __lt__(self, other):
+        def __lt__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() < other._comparable()
 
-        def __le__(self, other):
+        def __le__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() <= other._comparable()
 
-        def __eq__(self, other):
+        def __eq__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() == other._comparable()
 
-        def __ne__(self, other):
+        def __ne__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() != other._comparable()
 
-        def __gt__(self, other):
+        def __gt__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() > other._comparable()
 
-        def __ge__(self, other):
+        def __ge__(self, other: 'LearnAPIVersion') -> bool:
             return self._comparable() >= other._comparable()
 
 
 class BlackBoardEndPoints:
     @staticmethod
-    def get_course_children(course_id: str):
+    def get_course_children(course_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/children".format(course_id)
 
     @staticmethod
-    def get_course(course_id: str):
+    def get_course(course_id: str) -> str:
         return "/learn/api/public/v2/courses/{}".format(course_id)
 
     @staticmethod
-    def get_course_v1(course_id: str):
+    def get_course_v1(course_id: str) -> str:
         return "/learn/api/public/v1/courses/{}".format(course_id)
 
     @staticmethod
-    def get_child_course(course_id: str, child_course_id: str):
+    def get_child_course(course_id: str, child_course_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/children/{}".format(course_id, child_course_id)
 
     @staticmethod
-    def get_user_courses(user_id: str):
+    def get_user_courses(user_id: str) -> str:
         return "/learn/api/public/v1/users/{}/courses".format(user_id)
 
     @staticmethod
-    def get_file_attachments(course_id: str, content_id: str):
+    def get_file_attachments(course_id: str, content_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents/{}/attachments".format(course_id, content_id)
 
     @staticmethod
-    def get_file_attachment(course_id: str, content_id: str, attachment_id: str):
+    def get_file_attachment(course_id: str, content_id: str, attachment_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents/{}/attachments/{}".format(course_id, content_id, attachment_id)
 
     @staticmethod
-    def get_file_attachment_download(course_id: str, content_id: str, attachment_id: str):
+    def get_file_attachment_download(course_id: str, content_id: str, attachment_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents/{}/attachments/{}/download".format(course_id, content_id,
                                                                                             attachment_id)
 
     @staticmethod
-    def get_contents(course_id: str):
+    def get_contents(course_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents".format(course_id)
 
     @staticmethod
-    def get_content(course_id: str, content_id: str):
+    def get_content(course_id: str, content_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents/{}".format(course_id, content_id)
 
     @staticmethod
-    def get_content_children(course_id: str, content_id: str):
+    def get_content_children(course_id: str, content_id: str) -> str:
         return "/learn/api/public/v1/courses/{}/contents/{}/children".format(course_id, content_id)
 
 
@@ -270,10 +276,6 @@ class BlackBoardCourse:
 
         # V1 Attributes
         self.read_only = self.request_data('readOnly')
-
-
-        # Custom
-        self.num_active_downloads = 0
 
     def __str__(self):
         return "{} ({})".format(self.name, self.id)
@@ -320,7 +322,7 @@ class BlackBoardCourse:
         else:
             return specific_object.get(key, None)
 
-    def contents(self, existing_list=None, endpoint=None):
+    def contents(self, existing_list=None, endpoint=None) -> List['BlackBoardContent']:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
@@ -338,16 +340,16 @@ class BlackBoardCourse:
         #        existing_list.remove(content)
         return existing_list
 
-    def download_all_attachments(self, save_location='./', threaded=False):
+    def download_all_attachments(self, save_location='./', threaded=False) -> None:
         # Content Iteration Loop
-        def iterate_with_path(content, path=None):
+        def iterate_with_path(content, path=None) -> None:
             if path is None:
                 path = './{}'.format(self.name_safe)
             if content.content_handler.id == "resource/x-bb-folder":
                 path += ("/" + content.title_safe)
             for attachment in content.attachments():
                 if(threaded):
-                    self.client.threadPool.enqueue(attachment.download, path, self.downloadCallback, self.id, attachment)
+                    self.client.thread_pool.enqueue(attachment.download, path, self.downloadCallback, self.id, attachment)
                 else:
                     attachment.download(path)
             if content.has_children:
@@ -359,11 +361,11 @@ class BlackBoardCourse:
         for c in contents:
             iterate_with_path(c, "{}/{}".format(save_location, self.name_safe))
 
-    def downloadCallback(self, error_code, remaining_downloads, attachment):
+    def downloadCallback(self, error_code: int, remaining_downloads: int, attachment: 'BlackBoardAttachment') -> None:
         if error_code != 0:
-            print(f"Failed to Download File: {attachment.file_name_safe}")
+            print(f"{Fore.RED}Failed to Download File: {attachment.file_name_safe}\n")
         if remaining_downloads < 1:
-            print("Downloaded All Attachments For Course: {}".format(self.name))
+            print("{}Downloaded All Attachments For Course: {}\n\n".format(Fore.GREEN, self.name))
 
 
 class BlackBoardContent:
@@ -475,7 +477,7 @@ class BlackBoardContent:
         else:
             return specific_object.get(key, None)
 
-    def children(self, existing_list=None, endpoint=None):
+    def children(self, existing_list=None, endpoint=None) -> List['BlackBoardContent']:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
@@ -497,7 +499,7 @@ class BlackBoardContent:
         #        existing_list.remove(content)
         return existing_list
 
-    def attachments(self, existing_list=None, endpoint=None):
+    def attachments(self, existing_list=None, endpoint=None) -> List['BlackBoardAttachment']:
         if existing_list is None:
             existing_list = list()
         if endpoint is None:
@@ -533,7 +535,7 @@ class BlackBoardContent:
 
 
 class BlackBoardAttachment:
-    def __init__(self, content: BlackBoardContent, file_attachment: dict):
+    def __init__(self, content: 'BlackBoardContent', file_attachment: dict):
         self.id = file_attachment.get('id', None)
         self.file_name = file_attachment.get('fileName', None)
         self.file_name_safe = unquote(re.sub(
@@ -542,7 +544,6 @@ class BlackBoardAttachment:
         self.client = content.client
         self.course = content.course
         self.content = content
-        self.threads = list()
 
     def __str__(self):
         return "{} ({}) - {}".format(self.file_name, self.id, self.mime_type)
@@ -550,7 +551,7 @@ class BlackBoardAttachment:
     def __repr__(self):
         return str(self)
 
-    def download(self, location):
+    def download(self, location: str) -> None:
         download_location = ("./{}" if location is None else location + "/{}").format(self.file_name_safe)
         download = self.client.session.get(
             self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id, self.id))
@@ -564,7 +565,7 @@ class BlackBoardAttachment:
                 os.makedirs(location)
             if os.path.isfile(download_location):
                 # Check if Overwrite
-                print(f"{self.file_name_safe} - Already Exists @ {location}")
+                print(f"{Fore.YELLOW}{self.file_name_safe} - Already Exists @ {location}\n\n")
                 return
                 # TODO: Make Manifest Option
             with open(download_location, 'wb') as file_out:
@@ -572,7 +573,7 @@ class BlackBoardAttachment:
             print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
 
 
-def _to_date(date_string):
+def _to_date(date_string) -> datetime:
     if date_string is None:
         return None
     else:
@@ -777,16 +778,16 @@ class BlackBoardAttachmentXML:
 
 
 class DownloadQueue(futures.ThreadPoolExecutor):
-    def __init__(self, threadCount):
+    def __init__(self, threadCount: int):
         super().__init__(max_workers=threadCount)
-        self.active_downloads = {}
+        self.active_downloads = dict()
 
-    def enqueue(self, fn, path, cb, courseId, attachment):
+    def enqueue(self, fn: Callable[..., None], path: str, cb: Callable[[int, int, BlackBoardAttachment], None], courseId: str, attachment: BlackBoardAttachment):
         current_course_downloads = self.active_downloads.get(courseId, 0)
         self.active_downloads[courseId] = current_course_downloads + 1
         self.submit(self._fn_with_cb, *(fn, path, cb, courseId, attachment))
 
-    def _fn_with_cb(self, fn, path, cb, courseId, attachment):
+    def _fn_with_cb(self, fn: Callable[[str], None], path: str, cb: Callable[[int, int, BlackBoardAttachment], None], courseId: str, attachment: 'BlackBoardAttachment'):
         error = 0
         try:
             fn(path)
@@ -794,4 +795,4 @@ class DownloadQueue(futures.ThreadPoolExecutor):
             error = 1
         self.active_downloads[courseId] -= 1
         cb(error, self.active_downloads[courseId], attachment)
-        
+

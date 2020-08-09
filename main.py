@@ -8,6 +8,7 @@ import getpass
 import time
 
 
+
 def get_arguments():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
@@ -96,7 +97,7 @@ def handle_arguments(debug=False):
                 sys.exit(0)
         else:
             args.site = possible_site
-        if debug:
+        if args.site:
             args.institute = BlackBoardInstitute.find(args.site)[0]
 
     if args.record:
@@ -117,38 +118,37 @@ def handle_arguments(debug=False):
         return main(args)
 
 
-ARGS = object()
 
 
-def main(args):
-    global ARGS
-    ARGS = args
-    bbc = BlackBoardClient(username=args.username,
-                           password=args.password, site=args.site, thread_count=int(args.num_threads))
-    if bbc.login():
-        if not bbc.use_rest_api:
+def main(args) -> None:
+    client = BlackBoardClient(username=args.username,
+                           password=args.password, site=args.site, thread_count=int(args.num_threads), institute=args.institute, save_location=args.location)
+    if client.login():
+        if not client.use_rest_api:
             input("Your Blackboard Learn Service Doesn't Support the use of the rest API.\nXML request development is "
-                  "currently being worked on and should be available soon")
+                  "currently being worked on and should be available soon...\n\nPress Any Key to Exit")
+            sys.exit(0)
+        if not client.public_endpoint_avaliable():
+            input("The /public/ endpoint of of API is not accessable.\nUnfornatley this is required for this application to function...\n\nPress Any Key to Exit")
             sys.exit(0)
         save_config(args)
+        courses = client.courses()  # get all Courses
+        for course in args.additional_courses: # Append Additional Courses
+            courses.append(BlackBoardCourse(client, course))
         if args.mass_download:
-            courses = bbc.courses()  # get all Courses
-            for course in args.additional_courses:
-                courses.append(BlackBoardCourse(bbc, course))
             for course in courses:
                 if args.course is None or course.id == args.course:  # Download only Specified Course
                     course.download_all_attachments(args.location, args.threaded)
         else:
-            navigate(bbc)
+            navigate(client)
     else:
         if input("Failed to Login [Enter 'r' to Retry]") == 'r':
-            main(args)
+            handle_arguments()
     return
 
 
-def navigate(selected_item, path: list = None, error_message=''):
+def navigate(selected_item, path: list = None, error_message='') -> None:
     # Selecting New Item Based On Current Item
-    global ARGS
     clear_console()
     if selected_item is None:
         raise Exception("Unknown Error")
@@ -161,11 +161,10 @@ def navigate(selected_item, path: list = None, error_message=''):
                           error_message + "\n" if error_message else ""))
     error_message = ''
     item_class_name = type(selected_item).__name__
-    if item_class_name == "BlackBoardClient":
-        courses = selected_item.courses()
-        for course in ARGS.additional_courses:
-            courses.append(BlackBoardCourse(selected_item, course))
 
+    if item_class_name == "BlackBoardClient":
+        selected_item: BlackBoardClient
+        courses = selected_item.courses()
         # Going Forwards
         next_item = navigation(
             options=courses, attribute='name', sort=True, title='Course')
@@ -186,8 +185,7 @@ def navigate(selected_item, path: list = None, error_message=''):
                 next_item = navigation(options=selected_item.contents(), attribute='title', sort=True,
                                        title='Content')
             elif selected_index == 1:  # Download
-                selected_item.download_all_attachments(
-                    ARGS.location)  # Returns None
+                selected_item.download_all_attachments(selected_item.client.save_location)  # Returns None
             else:  # Go Back (Not Required)
                 next_item = None
         # Going Backwards
@@ -196,6 +194,7 @@ def navigate(selected_item, path: list = None, error_message=''):
             next_item = selected_item.client
 
     elif item_class_name == "BlackBoardContent":
+        selected_item: BlackBoardContent
         # Get Child Content or Attachments
         options = ["Get Child Content", "Get Attachments"]
         sub_selection = navigation(options=options, title="Option")
@@ -229,12 +228,13 @@ def navigate(selected_item, path: list = None, error_message=''):
                 next_item = parent_content
 
     elif item_class_name == "BlackBoardAttachment":
+        selected_item: BlackBoardAttachment
         options = ["Download", "Back"]
         sub_selection = navigation(options=options, title="Option")
         if sub_selection is not None:
             selected_index = options.index(sub_selection)
             if selected_index == 0:  # Download
-                selected_item.download(ARGS.location)
+                selected_item.download(selected_item.client.save_location)
 
         # Always Go Back to Attachments Parent
         current_path(path)
@@ -247,10 +247,10 @@ def navigate(selected_item, path: list = None, error_message=''):
         # current_path(path)
         navigate(next_item, path, error_message)
     else:  # Somehow not a specified Class
-        raise Exception("Unknown Error")
+        raise Exception(f"Unknown Class Provided ({item_class_name})")
 
 
-def navigation(**kwargs):
+def navigation(**kwargs) -> str:
     # Handle kwargs
     options = kwargs.get('options', list())
     attribute = kwargs.get('attribute', None)
@@ -275,21 +275,21 @@ def navigation(**kwargs):
             choice = int(choice)
             if choice > len(options) or choice <= 0:
                 raise ValueError
-            return options[choice - 1]
+            return options[choice - 1] # maybe just return the index
         except TypeError:
             print("Invalid Selection")
         except ValueError:
             print("Invalid Selection")
 
 
-def current_path(path: list = None, addition: str = '', step: int = -2):
+def current_path(path: list = None, addition: str = '', step: int = -2) -> None:
     if addition:
         path.append(addition)
     else:
         del path[step:]
 
 
-def save_config(args):
+def save_config(args) -> None:
     config = {
         'username': args.username,
         # 'password': args.password,
@@ -300,7 +300,7 @@ def save_config(args):
         json.dump(config, save)
 
 
-def clear_console():
+def clear_console() -> None:
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
