@@ -102,6 +102,7 @@ class BlackBoardClient:
         self.api_version = self.LearnAPIVersion("0.0.0")
         self.thread_pool = DownloadQueue(kwargs.get('thread_count', 4))
         self.save_location = kwargs.get('save_location', '.')
+        self.additional_courses = []
 
     # XML
     def login(self) -> bool:
@@ -137,6 +138,8 @@ class BlackBoardClient:
                         BlackBoardCourse(self, course["courseId"]))
                 if "paging" in course_data:
                     return self.courses(existing_list, course_data['paging']['nextPage'])
+                else:
+                    existing_list.extend(self.additional_courses)
         else:
             course_data = xmltodict.parse(self.session.get(
                 self.institute.b2_url + "enrollments?v=1&f=xml&ver=4.1.2&course_type=ALL&include_grades=false").text)
@@ -144,12 +147,18 @@ class BlackBoardClient:
                 for course in course_data['mobileresponse']['courses']['course']:
                     existing_list.append(
                         BlackBoardCourseXML(self, data=course))
+                existing_list.extend(self.additional_courses)
 
         # Verify Courses -- May Not Be Needed
         for course in existing_list:
             if course.id is None or course.name is None:
                 existing_list.remove(course)
         return existing_list
+
+    def add_course(self, course_id: str):
+        if course_id is None:
+            raise Exception("Failed to Add Course")
+        self.additional_courses.append(BlackBoardCourse(self, course_id))
 
     def public_endpoint_avaliable(self) -> bool:
         return self.session.get(self.site + "/learn/api/public/v1/system/version").ok

@@ -132,11 +132,10 @@ def main(args) -> None:
             input("The /public/ endpoint of of API is not accessable.\nUnfornatley this is required for this application to function...\n\nPress Any Key to Exit")
             sys.exit(0)
         save_config(args)
-        courses = client.courses()  # get all Courses
         for course in args.additional_courses: # Append Additional Courses
-            courses.append(BlackBoardCourse(client, course))
+            client.add_course(course)
         if args.mass_download:
-            for course in courses:
+            for course in client.courses():
                 if args.course is None or course.id == args.course:  # Download only Specified Course
                     course.download_all_attachments(args.location, args.threaded)
         else:
