@@ -40,7 +40,7 @@ def test():
     client.login()
     client_vars = vars(client)
     for item in client_vars:
-        if item not in ('_BlackBoardClient__password', 'session', 'institute', 'api_version'):
+        if item not in ('_BlackBoardClient__password', 'session', 'institute', 'api_version', 'thread_pool'):
             client_data[item] = client_vars[item]
     # Get Parent Course Data
     course_data = {
