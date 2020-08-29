@@ -146,9 +146,9 @@ class BlackBoardClient:
                         BlackBoardCourseXML(self, data=course))
 
         # Verify Courses -- May Not Be Needed
-        # for course in existing_list:
-        #     if course.id is None:
-        #         existing_list.remove(course)
+        for course in existing_list:
+            if course.id is None or course.name is None:
+                existing_list.remove(course)
         return existing_list
 
     def public_endpoint_avaliable(self) -> bool:
@@ -335,9 +335,9 @@ class BlackBoardCourse:
             if "paging" in content_data:
                 return self.contents(existing_list, content_data['paging']['nextPage'])
         # Verify Content
-        # for content in existing_list:
-        #    if content.id is None:
-        #        existing_list.remove(content)
+        for content in existing_list:
+            if content.id is None or content.title is None:
+                existing_list.remove(content)
         return existing_list
 
     def download_all_attachments(self, save_location='./', threaded=False) -> None:
@@ -494,9 +494,9 @@ class BlackBoardContent:
                     return self.children(existing_list, children_content['paging']['nextPage'])
 
         # Verify Children
-        # for content in existing_list:
-        #    if content.id is None:
-        #        existing_list.remove(content)
+        for content in existing_list:
+            if content.id is None or content.title is None:
+                existing_list.remove(content)
         return existing_list
 
     def attachments(self, existing_list=None, endpoint=None) -> List['BlackBoardAttachment']:
@@ -514,9 +514,9 @@ class BlackBoardContent:
                 if "paging" in attachments:
                     return self.attachments(existing_list, attachments['paging']['nextPage'])
         # Verify Attachment
-        # for content in existing_list:
-        #    if content.id is None:
-        #        existing_list.remove(content)
+        for content in existing_list:
+            if content.id is None or content.file_name is None:
+                existing_list.remove(content)
         return existing_list
 
     @staticmethod
