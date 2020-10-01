@@ -577,9 +577,12 @@ class BlackBoardAttachment:
                 print(f"{Fore.YELLOW}{self.file_name_safe} - Already Exists @ {location}\n\n")
                 return
                 # TODO: Make Manifest Option
-            with open(download_location, 'wb') as file_out:
-                file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
+            try:
+                with open(download_location, 'wb') as file_out:
+                    file_out.write(download.content)
+                print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
+            except FileNotFoundError:
+                print(f"{self.file_name_safe} @ {location} NOT FOUND\n\n")
 
 
 def _to_date(date_string) -> datetime:
@@ -780,11 +783,13 @@ class BlackBoardAttachmentXML:
                 print("File Exists No Download..")
                 # TODO: Make Manifest Option
                 return
-            with open(download_location, 'wb') as file_out:
-                file_out.write(download.content)
-            print("Downloaded: {}\nto: {}\n".format(
-                self.link_label_safe, location))
-
+            try:
+                with open(download_location, 'wb') as file_out:
+                    file_out.write(download.content)
+                print("Downloaded: {}\nto: {}\n".format(
+                    self.link_label_safe, location))
+            except FileNotFoundError:
+                print(f"{self.file_name_safe} @ {location} NOT FOUND\n\n")
 
 class DownloadQueue(futures.ThreadPoolExecutor):
     def __init__(self, threadCount: int):
