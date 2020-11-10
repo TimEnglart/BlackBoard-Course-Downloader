@@ -26,6 +26,8 @@ def get_arguments():
     parser.add_argument("-c", "--course", help="Course ID to Download")
     parser.add_argument("-r", "--record", help="Create A Manifest For Downloaded Data", action="store_true",
                         default=True)
+    parser.add_argument("-b", "--backup", help="Keep Local Copy of Outdated Files", action="store_true",
+                        default=False)                    
     parser.add_argument(
         "-V", "--verbose", help="Print Program Runtime Information", action="store_true")
     parser.add_argument(
@@ -100,8 +102,11 @@ def handle_arguments(debug=False):
         if args.site:
             args.institute = BlackBoardInstitute.find(args.site)[0]
 
-    if args.record:
-        pass
+    # if args.record:
+    #    pass
+
+    # if args.backup:
+    #    pass
 
     # if args.dump:
     #    pass
@@ -122,14 +127,15 @@ def handle_arguments(debug=False):
 
 def main(args) -> None:
     client = BlackBoardClient(username=args.username,
-                           password=args.password, site=args.site, thread_count=int(args.num_threads), institute=args.institute, save_location=args.location)
+                           password=args.password, site=args.site, thread_count=int(args.num_threads), institute=args.institute, save_location=args.location,
+                           use_manifest=args.record, backup_files=args.backup)
     if client.login():
         if not client.use_rest_api:
             input("Your Blackboard Learn Service Doesn't Support the use of the rest API.\nXML request development is "
                   "currently being worked on and should be available soon...\n\nPress Any Key to Exit")
             sys.exit(0)
         if not client.public_endpoint_avaliable():
-            input("The /public/ endpoint of of API is not accessable.\nUnfornatley this is required for this application to function...\n\nPress Any Key to Exit")
+            input("The /public/ endpoint of of API is not accessible.\nUnfornatley this is required for this application to function...\n\nPress Any Key to Exit")
             sys.exit(0)
         save_config(args)
         for course in args.additional_courses: # Append Additional Courses

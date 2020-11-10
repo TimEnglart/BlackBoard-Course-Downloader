@@ -37,7 +37,8 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 -s, --site              Base Website Where Institute Black Board is Located     Default: None
 -l, --location          Local Path To Save Content                              Default: './'
 -c, --course            Course ID to Download                                   Default: None
--r, --record            Create A Manifest For Downloaded Data                   Default: True               (Not Implemented)
+-r, --record            Create A Manifest For Downloaded Data                   Default: True
+-b, --backup            Keep Local Copy of Outdated Files                       Default: False
 -V, --verbose           Print Program Runtime Information                       Default: False              (Not Implemented)
 -C, --config            Location of Configuration File                          Default: './config.json'
 -i, --ignore-input      Ignore Input at Runtime                                 Default: False              (Not Implemented)

@@ -8,6 +8,8 @@ import xmltodict
 from urllib.parse import unquote
 from colorama import Fore, init
 from typing import List, Dict, Tuple, Callable, Generic
+import json
+import time
 init()
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
@@ -103,6 +105,8 @@ class BlackBoardClient:
         self.thread_pool = DownloadQueue(kwargs.get('thread_count', 4))
         self.save_location = kwargs.get('save_location', '.')
         self.additional_courses = []
+        self.use_manifest = kwargs.get('use_manifest', True)
+        self.backup_files = kwargs.get('backup_files', False)
 
     # XML
     def login(self) -> bool:
@@ -168,6 +172,7 @@ class BlackBoardClient:
 
     def __repr__(self):
         return str(self)
+
 
     class LearnAPIVersion:
         def __init__(self, learn_version: str):
@@ -286,6 +291,17 @@ class BlackBoardCourse:
         # V1 Attributes
         self.read_only = self.request_data('readOnly')
 
+        # Custom Attributes
+        
+        # Manifest
+        self.manifest_location = f"./{self.name_safe}/.manifest.json"
+        if self.client.use_manifest and os.path.isdir(f"./{self.name_safe}") and os.path.isfile(self.manifest_location):
+            with open(self.manifest_location) as f:
+                self.download_manifest = json.load(f)
+        else:
+            self.download_manifest = {}
+
+
     def __str__(self):
         return "{} ({})".format(self.name, self.id)
 
@@ -351,13 +367,13 @@ class BlackBoardCourse:
 
     def download_all_attachments(self, save_location='./', threaded=False) -> None:
         # Content Iteration Loop
-        def iterate_with_path(content, path=None) -> None:
+        def iterate_with_path(content: BlackBoardContent, path=None) -> None:
             if path is None:
                 path = './{}'.format(self.name_safe)
             if content.content_handler.id == "resource/x-bb-folder":
                 path += ("/" + content.title_safe)
             for attachment in content.attachments():
-                if(threaded):
+                if threaded:
                     self.client.thread_pool.enqueue(attachment.download, path, self.downloadCallback, self.id, attachment)
                 else:
                     attachment.download(path)
@@ -369,12 +385,20 @@ class BlackBoardCourse:
         contents = self.contents()
         for c in contents:
             iterate_with_path(c, "{}/{}".format(save_location, self.name_safe))
+        if not threaded:
+            self.downloadCallback(0, 0, None)
 
     def downloadCallback(self, error_code: int, remaining_downloads: int, attachment: 'BlackBoardAttachment') -> None:
         if error_code != 0:
-            print(f"{Fore.RED}Failed to Download File: {attachment.file_name_safe}\n")
+            _println(f"{Fore.RED}[FAILED TO DOWNLOAD FILE] {self.file_name_safe}")
         if remaining_downloads < 1:
-            print("{}Downloaded All Attachments For Course: {}\n\n".format(Fore.GREEN, self.name))
+            # Probably Will Spam on Faster Downloads :(
+            _println(f"{Fore.MAGENTA}[COURSE DOWNLOADED] {self.name_safe}\n")
+            # Manifest Save
+            if self.client.use_manifest and os.path.isdir(f"./{self.name_safe}"):
+                with open(self.manifest_location, 'w+') as f:
+                    json.dump(self.download_manifest, f)
+                
 
 
 class BlackBoardContent:
@@ -401,10 +425,8 @@ class BlackBoardContent:
         self.has_children = self.request_data('hasChildren')
         self.has_gradebook_columns = self.request_data('hasGradebookColumns')
         self.has_associated_groups = self.request_data('hasAssociatedGroups')
-        self.availability = self.Availability(
-            self.request_data('availability'))  # Class
-        self.content_handler = self.ContentHandler(
-            self.request_data('contentHandler'))  # Class
+        self.availability = self.Availability(self.request_data('availability'))
+        self.content_handler = self.ContentHandler(self.request_data('contentHandler'))
 
     def __str__(self):
         return "{} ({})".format(self.title, self.id)
@@ -562,28 +584,60 @@ class BlackBoardAttachment:
 
     def download(self, location: str) -> None:
         download_location = ("./{}" if location is None else location + "/{}").format(self.file_name_safe)
-        download = self.client.session.get(
-            self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id, self.id))
+        
+        request_headers = {}
+        if self.client.use_manifest and self.course.download_manifest.get(self.content.id, {}).get(self.id, None) is not None:
+            request_headers["If-None-Match"] = self.course.download_manifest[self.content.id][self.id]
+            
+        
+        
+        download = self.client.session.get(self.client.site + BlackBoardEndPoints.get_file_attachment_download(self.course.id, self.content.id, self.id), 
+                                            allow_redirects=True, headers=request_headers)
+       
         if download.status_code == 302:
-            print("File Located at: {}".format(
-                download.headers.get("Location", "")))
-            # Navigate to Location
-            # TODO: Add Redirect Navigation
+            # Redirect Already Handled By Requests
+            _println(f"{Fore.CYAN}[REDIRECT]: {download.headers.get('Location', None)}")
+        elif download.status_code == 304: # No Need to Update File
+            _println(f"{Fore.YELLOW}[UP TO DATE] {self.file_name_safe}\n[LOCATION] {location}")
         elif download.status_code == 200:
             if not os.path.exists(location):
                 os.makedirs(location)
-            if os.path.isfile(download_location):
-                # Check if Overwrite
-                print(f"{Fore.YELLOW}{self.file_name_safe} - Already Exists @ {location}\n\n")
-                return
-                # TODO: Make Manifest Option
-            try:
-                with open(download_location, 'wb') as file_out:
-                    file_out.write(download.content)
-                print("Downloaded: {}\nto: {}\n".format(self.file_name_safe, location))
-            except FileNotFoundError:
-                print(f"{self.file_name_safe} @ {location} NOT FOUND\n\n")
 
+            update_file = os.path.isfile(download_location)
+
+            if update_file and not self.client.use_manifest:
+                _println(f"{Fore.YELLOW}[UP TO DATE] {self.file_name_safe}\n[LOCATION] {location}")
+                return
+            
+            if update_file and self.client.use_manifest and self.client.backup_files:
+                try:
+                    split_file_name = self.file_name_safe.split('.')
+                    date_updated = datetime.strptime(download.headers['Last-Modified'], "%a, %d %b %Y %H:%M:%S %Z")
+                    new_file_name = f"{'.'.join(split_file_name[:-1])}_{date_updated.strftime('%d-%m-%Y')}.{split_file_name[-1]}"
+                    _println(f"{Fore.YELLOW}[BACKING UP] {self.file_name_safe}\n[LOCATION] {location}/backups/_{new_file_name}")
+                    if not os.path.exists(f"{location}/backups"):
+                        os.makedirs(f"{location}/backups")
+                    os.replace(download_location, f"{location}/backups/_{new_file_name}")
+                except:
+                    _println(f"{Fore.RED}[FAILED BACKUP] Failed to Backup File: {self.file_name_safe}")
+
+            if self.content.id not in self.course.download_manifest:
+                self.course.download_manifest[self.content.id] = {}
+            self.course.download_manifest[self.content.id][self.id] = download.headers.get("ETag", -1) # Possible Server Doesn't Supply ETag
+          
+
+            try:
+                with open(download_location, 'wb+') as file_out:
+                    file_out.write(download.content)
+            except:
+                _println(f"{Fore.RED}[FAILED TO DOWNLOAD FILE] {self.file_name_safe}")
+                return
+            _println(f"{Fore.GREEN}[{'UPDATED' if update_file else 'DOWNLOADED'}] {self.file_name_safe}\n[LOCATION] {location}")
+        else:
+            _println(f"{Fore.RED}[UNKNOWN STATUS CODE] {download.status_code}")
+
+def _println(text: str):
+    print(text + f"{Fore.RESET}\n")
 
 def _to_date(date_string) -> datetime:
     if date_string is None:
@@ -655,7 +709,7 @@ class BlackBoardCourseXML:
         # Content Iteration Start
         for c in self.contents():
             iterate_with_path(c, "{}/{}".format(save_location, self.name))
-        print("Downloaded All Attachments For Course: {}".format(self.name))
+        _println("Downloaded All Attachments For Course: {}".format(self.name))
 
 
 class BlackBoardContentXML:
@@ -728,7 +782,7 @@ class BlackBoardContentXML:
 
     def get_children(self):
         if self.children is not None:
-            # print(type(self.children["map-item"]))
+            # _println(type(self.children["map-item"]))
             if type(self.children["map-item"]) is list:
                 return [BlackBoardContentXML(self.course, data=content) for content in self.children["map-item"]]
             elif type(self.children["map-item"]) is dict:
@@ -771,7 +825,7 @@ class BlackBoardAttachmentXML:
         download = self.client.session.get(
             self.client.institute.display_lms_host + self.url)
         if download.status_code == 302:
-            print("File Located at: {}".format(
+            _println("File Located at: {}".format(
                 download.headers.get("Location", "")))
             # Navigate to Location
             # TODO: Add Redirect Navigation
@@ -780,16 +834,16 @@ class BlackBoardAttachmentXML:
                 os.makedirs(location)
             if os.path.isfile(download_location):
                 # Check if Overwrite
-                print("File Exists No Download..")
+                _println("File Exists No Download..")
                 # TODO: Make Manifest Option
                 return
             try:
                 with open(download_location, 'wb') as file_out:
                     file_out.write(download.content)
-                print("Downloaded: {}\nto: {}\n".format(
+                _println("Downloaded: {}\nto: {}\n".format(
                     self.link_label_safe, location))
             except FileNotFoundError:
-                print(f"{self.file_name_safe} @ {location} NOT FOUND\n\n")
+                _println(f"{self.file_name_safe} @ {location} NOT FOUND\n\n")
 
 class DownloadQueue(futures.ThreadPoolExecutor):
     def __init__(self, threadCount: int):
