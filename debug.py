@@ -24,6 +24,10 @@ def test():
     client = BlackBoardClient(username=args.username, password=args.password, site=args.site)
 
     def login():
+        """
+
+        :return:
+        """
         client_data["login_endpoint"] = args.institute.b2_url + "sslUserLogin"
         login_attempt = session.post(args.institute.b2_url + "sslUserLogin",
                                      data={'username': args.username, 'password': args.password})
@@ -51,6 +55,9 @@ def test():
     }
 
     def get_courses():
+        """
+
+        """
         request = session.get(args.institute.display_lms_host +
                               BlackBoardEndPoints.get_user_courses(client.user_id))
         courses = request.json()
@@ -78,7 +85,7 @@ def test():
         'client': client_data,
         'courses': course_data,
     }
-    with open("dump.json", 'w') as file:
+    with open("dump.json", 'w+') as file:
         json.dump(dumps, file)
 
 

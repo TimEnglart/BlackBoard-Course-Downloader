@@ -1,6 +1,7 @@
-idea/
+.idea/
 __pycache__/
 config.json
-.vscode
+.vscode/
 dump.json
-.mypy_cache
+.mypy_cache/
+venev/

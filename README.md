@@ -5,7 +5,7 @@
 
 Python script to navigate a Black Board Learn sites API.
 
-Currently only supports basic Black Board Course, Content and Attachment navigation
+Currently, only supports basic Black Board Course, Content and Attachment navigation
 
 ---
 
@@ -42,9 +42,20 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 -V, --verbose           Print Program Runtime Information                       Default: False              (Not Implemented)
 -C, --config            Location of Configuration File                          Default: './config.json'
 -i, --ignore-input      Ignore Input at Runtime                                 Default: False              (Not Implemented)
--t, --threaded          Allows For Mass Downloads to Run in Multiple Threads    Default: False
+-t, --threaded          Allows For Mass Downloads to Run in Multiple Threads    Default: True
 -n, --num-threads       Sets the Maximum Number of Threads to Download With     Default: 4                  (4 Concurrent Downloads)
 ```
+
+### My Launch Arguments
+
+`python main.py -t -n 8 -m -l "../" -r`
+
+- `-t` (Threaded)
+- `-n 8` (8 Concurrent Threads)
+- `-m` (Mass Download)
+- `-l "../"` (Save Files Up One Directory)
+- `-r` (Create Manifest)
+
 
 ---
 
@@ -52,7 +63,7 @@ Currently only supports basic Black Board Course, Content and Attachment navigat
 
 When you launch the program it will prompt you for your login credentials for your Institution:
 
-1. The first prompt is your your username. This will be what you usually use to login to your account.
+1. The first prompt is your username. This will be what you usually used to log in to your account.
    (The square brackets indicate what will be placed in the field if left blank) > Input Username [ ]: < Enter Username Here >
 2. The next prompt will be for your password. (This will not show input when you enter a character)
    > Input Password: < Enter Password Here >
@@ -73,8 +84,8 @@ When you launch the program it will prompt you for your login credentials for yo
 
       > ![image](https://user-images.githubusercontent.com/41773768/59965729-4e4def80-9555-11e9-8632-c0bc45763884.png)
 
-      When a child element is selected the console will clear and show all of the child elements of the course (similar
-      to the the child content output)
+      When a child element is selected the console will clear and show all the child elements of the course (similar
+      to the child content output)
 
       > ![image](https://user-images.githubusercontent.com/41773768/59965758-bc92b200-9555-11e9-8654-14dd7fdfd0eb.png)
 
