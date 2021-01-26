@@ -1,7 +1,7 @@
-.idea/
-__pycache__/
+/.idea/
+/__pycache__/
 config.json
-.vscode/
+/.vscode/
 dump.json
-.mypy_cache/
-venev/
+/.mypy_cache/
+/venv/

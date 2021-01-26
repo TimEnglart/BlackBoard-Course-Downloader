@@ -11,18 +11,18 @@ from datetime import datetime
 import xmltodict
 from urllib.parse import unquote
 from colorama import Fore, init
-from typing import List, Tuple, Callable, Optional
+from typing import List, Tuple, Callable, Optional, Dict, Any
 import json
 import time
+import threading
 
 init()
-
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
 
 # TODO: Use Consistent Coding Patterns (eg. String Formatting)
-# TODO: Queue Console Print Messages As They Cause Printed Text To Become Unreadable Due To Threading
 # TODO: Reformat Document (Move Nested Classes, etc)
+
 
 class BlackBoardInstitute:
     """
@@ -105,9 +105,15 @@ class BlackBoardClient:
 
     def __init__(self, **kwargs):
         """
-
-        :param kwargs:
-        :keyword username:
+        :param kwargs: Arguments to Set Certain Client Options
+        :keyword username: The Username of the Client to login with
+        :keyword password: The Required Password to Login With
+        :keyword site: The Website Link to the Base of the LMS
+        :keyword institute: The Institute that hosts the LMS
+        :keyword thread_count: The Maximum Number of Threads to Create when using Threaded Downloads
+        :keyword save_location: The Local System Path to Save Any Downloaded Documents
+        :keyword use_manifest: Enables/Disables the Process of Recording Downloaded Document Versions
+        :keyword backup_files: Enables/Disables the Process of Keeping Outdated Files when a Newer Version is Downloaded
         """
         self.username = kwargs.get('username', None)
         self.__password = kwargs.get('password', None)
@@ -134,6 +140,8 @@ class BlackBoardClient:
         :return: Returns a Tuple Containing whether the Login was a Success [0] and the
         Response From the Login Endpoint [1]
         """
+
+        # TODO: On Login Successful Should the Password be unset. But Then Can't Log Back in if 401 Occurs
 
         if self.institute is None or self.institute.b2_url is None:
             login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
@@ -338,6 +346,13 @@ class BlackBoardClient:
         def __str__(self):
             return repr(self)
 
+    def stop_threaded_downloads(self, _signal=None, _frame=None) -> None:
+        """
+        Shuts down the Download Queue that is Managing Threaded Downloads
+        """
+        _println(f"{Fore.LIGHTCYAN_EX}SIGINT Received Please Wait For The Currently Running Downloads to Complete....")
+        self.thread_pool.shutdown(wait=True, cancel_futures=True)
+
 
 class BlackBoardEndPoints:
     """
@@ -469,6 +484,10 @@ class BlackBoardCourse:
     """
 
     def __init__(self, client: BlackBoardClient, data: dict):
+        """
+        :param client: The Blackboard Client to Interact with this Course with
+        :param data: The JSON data returned from the Learn API
+        """
         self.client = client
         self._course_data = data
         self.id = self._course_data.get('id', None)
@@ -618,7 +637,7 @@ class BlackBoardCourse:
         """
 
         # Content Iteration Loop
-        def iterate_with_path(content: BlackBoardContent, path) -> None:
+        def iterate_with_path(content: BlackBoardContent, path: str) -> None:
             """
             Iterates Through the Given Content and its Child Content to Download Attachments
 
@@ -629,6 +648,7 @@ class BlackBoardCourse:
                 path = os.path.join(path, content.title_safe)
             for attachment in content.attachments():
                 if threaded:
+                    # Will Raise DownloadQueueCancelled if downloading has been cancelled
                     attachment.thread_download(path)
                 else:
                     attachment.download(path)
@@ -640,6 +660,7 @@ class BlackBoardCourse:
         contents = self.contents()
         for c in contents:
             iterate_with_path(c, os.path.join(save_location, self.name_safe))
+
         if not threaded:
             self.finished_course_downloads()
 
@@ -690,6 +711,10 @@ class BlackBoardContent:
     """
 
     def __init__(self, course: BlackBoardCourse, data: dict):
+        """
+        :param course: The Blackboard Course that holds this Content
+        :param data: The JSON data returned from the Learn API
+        """
         self.course = course
         self.client = course.client
         self.__content_data = data
@@ -912,12 +937,16 @@ class BlackBoardAttachment:
     Represents an Attachment Within Blackboard Content
     """
 
-    def __init__(self, content: BlackBoardContent, file_attachment: dict):
-        self.id = file_attachment.get('id', None)
-        self.file_name = file_attachment.get('fileName', None)
+    def __init__(self, content: BlackBoardContent, data: dict):
+        """
+        :param content: The Blackboard Content that the Attachment is Attached to
+        :param data: The JSON data returned from the Learn API
+        """
+        self.id = data.get('id', None)
+        self.file_name = data.get('fileName', None)
         self.file_name_safe = unquote(re.sub(
             '[<>:"/\\\\|?*]', '', self.file_name)) if self.file_name is not None else ''
-        self.mime_type = file_attachment.get('mimeType', None)
+        self.mime_type = data.get('mimeType', None)
         self.client = content.client
         self.course = content.course
         self.content = content
@@ -1035,13 +1064,54 @@ class BlackBoardAttachment:
             self.course.finished_course_downloads()
 
 
+class FunctionQueue:
+    """
+    Add Functions that are to be Executed in the Added Order
+    """
+    def __init__(self):
+        self.queue: List[Tuple[Callable[..., None], Tuple[Any, ...], Dict[str, Any]]] = []
+        self.thread: Optional[threading.Thread] = None
+
+    def enqueue(self, fn: Callable[..., None], *args, **kwargs) -> None:
+        """
+        Places a Function into a Queue that is then executed in the order it was received
+
+        :param fn: Function to Execute
+        :param args: Arguments for the Provided Function
+        :param kwargs: Keyword Arguments for the Provided Function
+        """
+        self.queue.append((fn, args, kwargs))
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._run)
+            self.thread.start()
+
+    def _run(self) -> None:
+        """
+        The Worker Function that Runs Inside a Thread Executing the Received Functions
+        """
+        while len(self.queue) > 0:
+            (fn, args, kwargs) = self.queue.pop(0)
+            fn(*args, **kwargs)
+
+        # Probably Not the best idea to wastefully spam thread creations
+        # Sleep will also create some text pausing and jumping
+        time.sleep(0.8)  # Wait 0.8 Seconds and if no more Functions come Exit Thread..
+        if len(self.queue) > 0:
+            self._run()
+        self.thread = None
+
+
+function_queue = FunctionQueue()
+
+
 def _println(text: str, *args) -> None:
     """
     Print Function that Adds an Extra Newline and Formats a String
     :param text: The Text to Print/Format
     :param args: The Formatting Arguments
     """
-    print(text.format(*args) + f"{Fore.RESET}\n")
+    function_queue.enqueue(print, text.format(*args) + f"{Fore.RESET}\n")
+    # print(text.format(*args) + f"{Fore.RESET}\n")
 
 
 def _to_date(date_string) -> Optional[datetime]:
@@ -1064,7 +1134,16 @@ class DownloadQueue(futures.ThreadPoolExecutor):
     A Download Queue to Allow For Multi-Threaded Downloads
     """
 
+    class DownloadQueueCancelled(Exception):
+        """
+        An Exception is Thrown When The ThreadPoolExecutor has been Shutdown
+        """
+        pass
+
     def __init__(self, thread_count: int):
+        """
+        :param thread_count: The Maximum Number of Worker Threads to Spawn
+        """
         super().__init__(max_workers=thread_count)
 
     def enqueue(self, fn: Callable[..., None], cb: Callable[[Optional[Exception]], None], *args) -> None:
@@ -1075,7 +1154,10 @@ class DownloadQueue(futures.ThreadPoolExecutor):
         :param cb: The Function to Call After Execution
         :param args: The Arguments For the Function to Execute (fn)
         """
-        self.submit(DownloadQueue.__fn_with_cb, *(fn, cb, *args))
+        try:
+            self.submit(DownloadQueue.__fn_with_cb, *(fn, cb, *args))
+        except RuntimeError:
+            raise DownloadQueue.DownloadQueueCancelled()
 
     @staticmethod
     def __fn_with_cb(fn: Callable[..., None], cb: Callable[[Optional[Exception]], None], *args) -> None:

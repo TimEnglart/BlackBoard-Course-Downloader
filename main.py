@@ -2,12 +2,15 @@
 Main Module is the Main CLI Application
 """
 from typing import Optional, Any, List, Union
-from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardInstitute, BlackBoardCourse
+from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardInstitute, \
+    BlackBoardCourse, DownloadQueue
 import argparse
 import sys
 import json
 import os
 import getpass
+import signal
+
 
 # TODO: Add Inline Comments Explaining Possibly Confusing or Dumb Implementations
 
@@ -140,6 +143,7 @@ def main(args) -> None:
                               use_manifest=args.record, backup_files=args.backup)
     login_resp = client.login()
     if login_resp[0]:
+        signal.signal(signal.SIGINT, client.stop_threaded_downloads)  # Hook SIGINT (ctrl + c) so we can kill threads
         if not client.use_rest_api:
             input("Your Blackboard Learn Service Doesn't Support the use of the rest API.\nXML request development is "
                   "currently being worked on and should be available soon...\n\nPress Any Key to Exit")
@@ -153,9 +157,12 @@ def main(args) -> None:
         for course in args.additional_courses:  # Append Additional Courses
             client.add_course(course)
         if args.mass_download:
-            for course in client.courses():
-                if args.course is None or course.id == args.course:  # Download only Specified Course
-                    course.download_all_attachments(args.location, args.threaded)
+            try:
+                for course in client.courses():
+                    if args.course is None or course.id == args.course:  # Download only Specified Course
+                        course.download_all_attachments(args.location, args.threaded)
+            except DownloadQueue.DownloadQueueCancelled:  # We Have Shutdown The Downloads
+                print(f"Cancelling All Remaining Downloads...")
         else:
             navigate(client)
     else:
