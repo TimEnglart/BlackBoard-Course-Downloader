@@ -42,7 +42,7 @@ def get_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def handle_arguments() -> None:
+def handle_arguments(debug=False) -> None:
     """
     Uses the Given CLI Arguments, Configuration File and User Input to Fill in the Required Values
     """
@@ -119,6 +119,8 @@ def handle_arguments() -> None:
     #    pass
     args.additional_courses = config_content.get("additionalCourses", [])
 
+    if debug:
+        return args
     # Run Actual Program
     if args.gui:
         # Insert GUI Function Here
