@@ -10,6 +10,7 @@ import json
 import os
 import getpass
 import signal
+import browser_cookie3
 
 
 # TODO: Add Inline Comments Explaining Possibly Confusing or Dumb Implementations
@@ -39,6 +40,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("-i", "--ignore-input", help="Ignore Input at Runtime", action="store_true")
     parser.add_argument("-t", "--threaded", help="Enable multi-threaded downloading", action="store_true", default=True)
     parser.add_argument("-n", "--num-threads", help="Max Number of Threads to Use When Downloading", default=4)
+    parser.add_argument("-B", "--browser", help="Browser to get cookies from, for authenticated sessions", default=None)
     return parser.parse_args()
 
 
@@ -112,8 +114,8 @@ def handle_arguments(debug=False) -> None:
                 sys.exit(0)
         else:
             args.site = possible_site
-        if args.site:
-            args.institute = BlackBoardInstitute.find(args.site)[0]
+    if args.site:
+        args.institute = BlackBoardInstitute.find(args.site)[0]
 
     # if args.dump:
     #    pass
@@ -142,7 +144,7 @@ def main(args) -> None:
     client = BlackBoardClient(username=args.username,
                               password=args.password, site=args.site, thread_count=int(args.num_threads),
                               institute=args.institute, save_location=args.location,
-                              use_manifest=args.record, backup_files=args.backup)
+                              use_manifest=args.record, backup_files=args.backup, browser=args.browser)
     login_resp = client.login()
     if login_resp[0]:
         signal.signal(signal.SIGINT, client.stop_threaded_downloads)  # Hook SIGINT (ctrl + c) so we can kill threads

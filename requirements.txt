@@ -1,3 +1,4 @@
 xmltodict
 requests
 colorama
+browser-cookie3

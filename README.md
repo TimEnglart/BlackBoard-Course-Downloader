@@ -44,6 +44,7 @@ Currently, only supports basic Black Board Course, Content and Attachment naviga
 -i, --ignore-input      Ignore Input at Runtime                                 Default: False              (Not Implemented)
 -t, --threaded          Allows For Mass Downloads to Run in Multiple Threads    Default: True
 -n, --num-threads       Sets the Maximum Number of Threads to Download With     Default: 4                  (4 Concurrent Downloads)
+-B, --browser           Browser to Get Login Cookies from                       Default: None               (Firefox or Chrome etc.)
 ```
 
 ### My Launch Arguments
