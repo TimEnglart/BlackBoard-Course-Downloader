@@ -10,7 +10,6 @@ import json
 import os
 import getpass
 import signal
-import browser_cookie3
 
 
 # TODO: Add Inline Comments Explaining Possibly Confusing or Dumb Implementations
