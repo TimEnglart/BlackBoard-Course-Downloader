@@ -5,6 +5,8 @@ Blackboard Module Provides the Classes to Interact With the Blackboard Learn Pub
 from __future__ import annotations
 import os
 import re
+from http.cookiejar import CookieJar
+
 import requests
 from concurrent import futures
 from datetime import datetime
@@ -15,8 +17,15 @@ from typing import List, Tuple, Callable, Optional, Dict, Any
 import json
 import time
 import threading
+import sys
+import browser_cookie3
+import http.cookiejar
+# import WebScraper
 
 init()
+
+
+
 
 # Thanks to: https://github.com/hako/blackboard-dl for Mobile BB XML Locations
 
@@ -118,11 +127,14 @@ class BlackBoardClient:
         self.username = kwargs.get('username', None)
         self.__password = kwargs.get('password', None)
         self.site = kwargs.get('site', None)
+        self.login_method = kwargs.get('login_method', 'login')
         self.session = requests.Session()
         self.user_id = None
         self.batch_uid = None
-        if self.username is None or self.__password is None or self.site is None:
-            raise Exception("Missing Username and/or Password and/or Site")
+        if self.username is None or self.site is None:
+            raise Exception("Missing Username and/or Site")
+        if self.__password is None and self.login_method == 'login':
+            raise Exception('and/or Password ')
         self.institute = kwargs.get('institute', None)
         self.use_rest_api = True  # Can/Cannot Use The Learn Rest API
         self.api_version = self.LearnAPIVersion("0.0.0")
@@ -131,6 +143,7 @@ class BlackBoardClient:
         self.additional_courses = []
         self.use_manifest = kwargs.get('use_manifest', True)
         self.backup_files = kwargs.get('backup_files', False)
+        self.cookie_jar = CookieJar()
 
     # XML
     def login(self) -> Tuple[bool, requests.Response]:
@@ -141,23 +154,47 @@ class BlackBoardClient:
         Response From the Login Endpoint [1]
         """
 
-        # TODO: On Login Successful Should the Password be unset. But Then Can't Log Back in if 401 Occurs
+        if self.login_method == 'cookie':
+            self.cookie_jar = get_cookies(self.site)
+            self.session.cookies.update(self.cookie_jar)
+            input(f'Cookies:\n{[f"Name: {cookie.name} - Domain: {cookie.domain}" for cookie in self.session.cookies]}')
 
-        if self.institute is None or self.institute.b2_url is None:
-            login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
+            r = requests.get(self.site + BlackBoardEndPoints.get_user_by_username(self.username), cookies=self.cookie_jar)
+            input(r.status_code)
+
+            login = self.session.get(self.site, cookies=self.cookie_jar)
+
+            resp = self.session.get(self.site + BlackBoardEndPoints.get_user_by_username(self.username),
+                                    cookies=self.cookie_jar)
+            print(f"Username Response: {resp}")
+            if resp.status_code == 200:
+                self.user_id = resp.json()["results"][0]["id"]
+            return resp.status_code == 200, {}
         else:
-            login_endpoint = self.institute.b2_url  # ?v=2&f=xml&ver=4.1.2
+            # TODO: On Login Successful Should the Password be unset. But Then Can't Log Back in if 401 Occurs
 
-        login = self.session.post(login_endpoint + "sslUserLogin",
-                                  data={'username': self.username, 'password': self.__password})
+            if self.institute is None or self.institute.b2_url is None:
+                login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
+            else:
+                login_endpoint = self.institute.b2_url  # ?v=2&f=xml&ver=4.1.2
+
+            login = self.session.post(login_endpoint + "sslUserLogin",
+                                      data={'username': self.username, 'password': self.__password})
+        
         if login.status_code == 200:
-            response_xml = xmltodict.parse(login.text)['mobileresponse']
-            if response_xml['@status'] == 'OK':
-                self.user_id = response_xml['@userid']
-                self.batch_uid = response_xml['@batch_uid']
-                self.use_rest_api = response_xml['@use_learn_rest_api']
-                self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
-                return True, login
+            input(f'Cookies:\n{[f"Name: {cookie.name} - Domain: {cookie.domain}" for cookie in self.session.cookies]}')
+            if login.headers["Content-Type"] == "text/xml":
+                _println("XML")
+                response_xml = xmltodict.parse(login.text)['mobileresponse']
+                if response_xml['@status'] == 'OK':
+                    input(response_xml['@userid'])
+                    self.user_id = response_xml['@userid']
+                    self.batch_uid = response_xml['@batch_uid']
+                    self.use_rest_api = response_xml['@use_learn_rest_api']
+                    self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
+                    return True, login
+            else:
+                _println("{}Invalid Login Response Content-Type Received: {}", Fore.RED, login.headers["Content-Type"])
         return False, login
 
     class BBRequestException(Exception):
@@ -175,13 +212,14 @@ class BlackBoardClient:
         :param kwargs: The Keyword Args are the kwargs Passed to requests.get()
         :return: Returns the Response from the Blackboard Server if it was Successful
         """
-
+        print("Request URL: " + self.site + endpoint)
         request = None
         try:
-            request = self.session.get(self.site + endpoint, **kwargs)
+            request = self.session.get(self.site + endpoint, cookies=self.cookie_jar, **kwargs)
+            print("CODE: " + str(request.status_code))
             if request.status_code == 401:  # Unauthorised, Attempt to Log Back In
                 self.login()
-                request = self.session.get(self.site + endpoint, **kwargs)
+                request = self.session.get(self.site + endpoint, cookies=self.cookie_jar, **kwargs)
             elif request.status_code == 400 or request.status_code == 403 or request.status_code == 404:
                 # Bad Request | Forbidden | Not Found
                 # Most of the Time These Will Be Triggered Due to Just Spamming the API Trying to Find Stuff
@@ -291,6 +329,9 @@ class BlackBoardClient:
                 filled.append(point.zfill(8))
             return tuple(filled)
 
+        def __repr__(self):
+            return str(self)
+
         def __str__(self):
             return "{}.{}.{}".format(self.major, self.minor, self.patch)
 
@@ -335,16 +376,16 @@ class BlackBoardClient:
             self.extra_info = self.json.get("extraInfo ", "")
 
         def __repr__(self):
+            return str(self)
+
+        def __str__(self):
             if not self.json:
                 return self.__response
             else:
                 return "REST Exception:\nPath: {}\nStatus: {}\nCode: {}\nMessage: {}\nDeveloper Message:{}\nExtra " \
-                       "Info: {}".format(
+                        "Info: {}".format(
                         self.__response.url, self.status, self.code, self.message, self.developer_message,
                         self.extra_info)
-
-        def __str__(self):
-            return repr(self)
 
     def stop_threaded_downloads(self, _signal=None, _frame=None) -> None:
         """
@@ -409,6 +450,16 @@ class BlackBoardEndPoints:
         :return: A String that has the required API Path to See All of a Users Registered Courses
         """
         return f"/learn/api/public/v1/users/{user_id}/courses"
+
+    @staticmethod
+    def get_user_by_username(username: str) -> str:
+        """
+        Returns a lists of users based on a username query string
+
+        :param username: The Username of the user of the request
+        :return: A List of User Objects that has the based on the search criteria
+        """
+        return f"/learn/api/public/v1/users?userName={username}"
 
     @staticmethod
     def get_file_attachments(course_id: str, content_id: str) -> str:
@@ -1174,3 +1225,46 @@ class DownloadQueue(futures.ThreadPoolExecutor):
         except Exception as e:
             error = e
         cb(error)
+
+
+def get_cookies(learn_domain: str, default_browser: Optional[str] = None) -> CookieJar:
+    """
+    Attempts to get a Users Login Session from a Browser
+    """
+    regex = re.compile("https?://(.*)")
+    learn_domain = regex.search(learn_domain).group(1)
+    print(learn_domain)
+    browsers = {
+        "Chrome": browser_cookie3.chrome, 
+        "Firefox": browser_cookie3.firefox,
+        "Edge": browser_cookie3.edge,
+        "Opera": browser_cookie3.opera,
+        "Chromium": browser_cookie3.chromium,
+        "Unknown": None
+    }
+
+    def get_cookies_from_browser(browser_name: str, browser_fn: Callable[..., CookieJar]):
+        try:
+            _println("Attempting to Grab Cookies from: {}", browser_name)
+            ret = browser_fn() #domain_name=learn_domain 
+            _println("Grabbed Cookies from: {}", browser_name)
+            return ret
+        except Exception:
+            _println("Failed to Grab Cookies for Browser: {}", browser_name)
+
+    if default_browser is not None:
+        selection = default_browser
+    else:
+        from main import navigation
+        selection = navigation([*browsers], title="Select a Browser to Pull Your Cookies from")
+    
+    if selection is None or browsers[selection] is None:
+        for browser_name_, browser_func in browsers.items():
+            if browser_func is None:
+                continue
+            
+            cookies = get_cookies_from_browser(browser_name_, browser_func)
+            if cookies is not None:
+                return cookies
+    else:
+        return get_cookies_from_browser(selection, browsers[selection])

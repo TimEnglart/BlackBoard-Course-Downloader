@@ -1,9 +1,10 @@
 """
 Main Module is the Main CLI Application
 """
-from typing import Optional, Any, List, Union
+from http.cookiejar import CookieJar
+from typing import Optional, Any, List, Union, Callable
 from blackboard import BlackBoardContent, BlackBoardClient, BlackBoardAttachment, BlackBoardInstitute, \
-    BlackBoardCourse, DownloadQueue
+    BlackBoardCourse, DownloadQueue, _println
 import argparse
 import sys
 import json
@@ -39,6 +40,8 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("-i", "--ignore-input", help="Ignore Input at Runtime", action="store_true")
     parser.add_argument("-t", "--threaded", help="Enable multi-threaded downloading", action="store_true", default=True)
     parser.add_argument("-n", "--num-threads", help="Max Number of Threads to Use When Downloading", default=4)
+    parser.add_argument("-P", "--pull-cookies", help="Instead of needing to provide your credentials, "
+                                                     "pull them from your browser", action='store_true', default=False)
     return parser.parse_args()
 
 
@@ -72,7 +75,12 @@ def handle_arguments(debug=False) -> None:
     print(f"Saving Content To: {args.location}\n")
 
     # Command Line Arg -> Config File -> Input
+    args.login_method = config_content.get("loginMethod", None)
 
+    login_methods = {
+        'Username & Password': 'login',
+        'Browser Cookies': 'cookie'
+    }
     if args.username is None:
         possible_username = config_content.get('username', '')
         if not args.ignore_input:
@@ -84,18 +92,25 @@ def handle_arguments(debug=False) -> None:
             else:
                 print("No Username Supplied!")
                 sys.exit(0)
+    if args.login_method is None:
+        selected_option = navigation([*login_methods], title="How would you like to login")
+        if selected_option is None:
+            selected_option = 'Username & Password'
+        args.login_method = login_methods[selected_option]
 
-    if args.password is None:
-        possible_password = config_content.get('password', '')
-        if not args.ignore_input:
-            args.password = getpass.getpass("Enter Password{}: "
-                                            .format(" [Config Password]" if possible_password else ""))
-        if not args.password or not args.password.strip():
-            if possible_password:
-                args.password = possible_password
-            else:
-                print("No Password Supplied!")
-                sys.exit(0)
+    if args.login_method == "login":
+
+        if args.password is None:
+            possible_password = config_content.get('password', '')
+            if not args.ignore_input:
+                args.password = getpass.getpass("Enter Password{}: "
+                                                .format(" [Config Password]" if possible_password else ""))
+            if not args.password or not args.password.strip():
+                if possible_password:
+                    args.password = possible_password
+                else:
+                    print("No Password Supplied!")
+                    sys.exit(0)
 
     if args.site is None:
         possible_site = config_content.get('site', '')
@@ -142,7 +157,8 @@ def main(args) -> None:
     client = BlackBoardClient(username=args.username,
                               password=args.password, site=args.site, thread_count=int(args.num_threads),
                               institute=args.institute, save_location=args.location,
-                              use_manifest=args.record, backup_files=args.backup)
+                              use_manifest=args.record, backup_files=args.backup, login_method=args.login_method
+                              )
     login_resp = client.login()
     if login_resp[0]:
         signal.signal(signal.SIGINT, client.stop_threaded_downloads)  # Hook SIGINT (ctrl + c) so we can kill threads
