@@ -5,6 +5,8 @@ Blackboard Module Provides the Classes to Interact With the Blackboard Learn Pub
 from __future__ import annotations
 import os
 import re
+
+import browser_cookie3
 import requests
 from concurrent import futures
 from datetime import datetime
@@ -131,6 +133,8 @@ class BlackBoardClient:
         self.additional_courses = []
         self.use_manifest = kwargs.get('use_manifest', True)
         self.backup_files = kwargs.get('backup_files', False)
+        self.browser = kwargs.get('browser', None)
+        self.browser_cj = {}
 
     # XML
     def login(self) -> Tuple[bool, requests.Response]:
@@ -142,6 +146,13 @@ class BlackBoardClient:
         """
 
         # TODO: On Login Successful Should the Password be unset. But Then Can't Log Back in if 401 Occurs
+        if self.browser:
+            if self.browser.lower() == "firefox":
+                self.browser_cj = browser_cookie3.firefox()
+            elif self.browser.lower() == "chrome":
+                self.browser_cj = browser_cookie3.chrome()
+            else:
+                self.browser_cj = browser_cookie3.load()
 
         if self.institute is None or self.institute.b2_url is None:
             login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
@@ -149,14 +160,21 @@ class BlackBoardClient:
             login_endpoint = self.institute.b2_url  # ?v=2&f=xml&ver=4.1.2
 
         login = self.session.post(login_endpoint + "sslUserLogin",
-                                  data={'username': self.username, 'password': self.__password})
+                                  data={'username': self.username, 'password': self.__password}, cookies=self.browser_cj)
         if login.status_code == 200:
             response_xml = xmltodict.parse(login.text)['mobileresponse']
             if response_xml['@status'] == 'OK':
-                self.user_id = response_xml['@userid']
-                self.batch_uid = response_xml['@batch_uid']
                 self.use_rest_api = response_xml['@use_learn_rest_api']
                 self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
+
+                if self.browser:
+                    user_endpoint = self.site + "/learn/api/public/v1/users/?userName={0}".format(self.username)
+                    user = self.session.get(user_endpoint, cookies=self.browser_cj).json()
+                    self.user_id = user['results'][0]['id']
+                    self.batch_uid = None
+                else:
+                    self.user_id = response_xml['@userid']
+                    self.batch_uid = response_xml['@batch_uid']
                 return True, login
         return False, login
 
@@ -178,10 +196,10 @@ class BlackBoardClient:
 
         request = None
         try:
-            request = self.session.get(self.site + endpoint, **kwargs)
+            request = self.session.get(self.site + endpoint, cookies=self.browser_cj, **kwargs)
             if request.status_code == 401:  # Unauthorised, Attempt to Log Back In
                 self.login()
-                request = self.session.get(self.site + endpoint, **kwargs)
+                request = self.session.get(self.site + endpoint, cookies=self.browser_cj, **kwargs)
             elif request.status_code == 400 or request.status_code == 403 or request.status_code == 404:
                 # Bad Request | Forbidden | Not Found
                 # Most of the Time These Will Be Triggered Due to Just Spamming the API Trying to Find Stuff
