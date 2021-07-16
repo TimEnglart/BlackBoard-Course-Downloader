@@ -72,6 +72,12 @@ def handle_arguments(debug=False) -> None:
     args.location = os.path.abspath(os.path.join(script_directory, args.location))
     print(f"Saving Content To: {args.location}\n")
 
+    if args.browser is not None:
+        print("** MAKE SURE YOU ARE AUTHENTICATED IN YOUR BROWSER BEFORE PROCEEDING **\n" +
+            "You have enabled the --browser argument. This will use your blackboard sites cookies from your chosen browser: {0}.\n".format(args.browser) +
+            "If you use an email address to login enter your username for the email when prompted for a username.\n" +
+            "e.g. Your normal login is: \"me@example.com\", use \"me\" as your username\n")
+
     # Command Line Arg -> Config File -> Input
 
     if args.username is None:
@@ -119,6 +125,7 @@ def handle_arguments(debug=False) -> None:
     # if args.dump:
     #    pass
     args.additional_courses = config_content.get("additionalCourses", [])
+
 
     if debug:
         return args
