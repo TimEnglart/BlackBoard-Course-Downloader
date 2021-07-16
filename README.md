@@ -5,15 +5,17 @@
 
 Python script to navigate a Black Board Learn sites API.
 
-Currently, only supports basic Black Board Course, Content and Attachment navigation
+Currently, only supports basic Black Board Course, Content and Attachment navigation via the [Public Blackboard API](https://developer.blackboard.com/portal/displayApi)
 
 ---
 
 ## Features
 
 - Download Course Content
+- Allows for logging in with MFA and Oauth accounts via cookies (Using the [--browser](https://github.com/TimEnglart/BlackBoard-Course-Downloader#launch-arguments) flag)
 
 ---
+
 
 ## Setup
 
@@ -28,7 +30,7 @@ Currently, only supports basic Black Board Course, Content and Attachment naviga
 
 ## Launch Arguments
 
-```
+```txt
 -v, --version           Displays Application Version                            Default: False
 -g, --gui               Use GUI instead of CLI                                  Default: False              (Not Implemented)
 -m, --mass-download     Download All Course Documents                           Default: False
@@ -44,7 +46,7 @@ Currently, only supports basic Black Board Course, Content and Attachment naviga
 -i, --ignore-input      Ignore Input at Runtime                                 Default: False              (Not Implemented)
 -t, --threaded          Allows For Mass Downloads to Run in Multiple Threads    Default: True
 -n, --num-threads       Sets the Maximum Number of Threads to Download With     Default: 4                  (4 Concurrent Downloads)
--B, --browser           Browser to Get Login Cookies from                       Default: None               (Firefox or Chrome etc.)
+-B, --browser           Browser to Get Login Cookies from                       Default: None               (Browsers Available: Chrome, Firefox, Opera, Edge, Chromium)
 ```
 
 ### My Launch Arguments
@@ -56,7 +58,6 @@ Currently, only supports basic Black Board Course, Content and Attachment naviga
 - `-m` (Mass Download)
 - `-l "../"` (Save Files Up One Directory)
 - `-r` (Create Manifest)
-
 
 ---
 
