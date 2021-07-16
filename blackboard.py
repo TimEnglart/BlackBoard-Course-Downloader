@@ -7,6 +7,8 @@ import os
 import re
 
 import browser_cookie3
+from http.cookiejar import CookieJar
+
 import requests
 from concurrent import futures
 from datetime import datetime
@@ -17,6 +19,7 @@ from typing import List, Tuple, Callable, Optional, Dict, Any
 import json
 import time
 import threading
+
 
 init()
 
@@ -146,13 +149,10 @@ class BlackBoardClient:
         """
 
         # TODO: On Login Successful Should the Password be unset. But Then Can't Log Back in if 401 Occurs
+
+        # Get Cookies if Browser name is provided
         if self.browser:
-            if self.browser.lower() == "firefox":
-                self.browser_cj = browser_cookie3.firefox()
-            elif self.browser.lower() == "chrome":
-                self.browser_cj = browser_cookie3.chrome()
-            else:
-                self.browser_cj = browser_cookie3.load()
+            self.browser_cj = get_cookies(self.site, self.browser)
 
         if self.institute is None or self.institute.b2_url is None:
             login_endpoint = self.site + "/webapps/Bb-mobile-bb_bb60/"
@@ -161,6 +161,7 @@ class BlackBoardClient:
 
         login = self.session.post(login_endpoint + "sslUserLogin",
                                   data={'username': self.username, 'password': self.__password}, cookies=self.browser_cj)
+
         if login.status_code == 200:
             response_xml = xmltodict.parse(login.text)['mobileresponse']
             if response_xml['@status'] == 'OK':
@@ -168,7 +169,7 @@ class BlackBoardClient:
                 self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
 
                 if self.browser:
-                    user_endpoint = self.site + "/learn/api/public/v1/users/?userName={0}".format(self.username)
+                    user_endpoint = self.site + BlackBoardEndPoints.get_user_by_username(self.username)
                     user = self.session.get(user_endpoint, cookies=self.browser_cj).json()
                     self.user_id = user['results'][0]['id']
                     self.batch_uid = None
@@ -417,6 +418,15 @@ class BlackBoardEndPoints:
         :return: A String that has the required API Path to Access a Courses Child Course
         """
         return f"/learn/api/public/v1/courses/{course_id}/children/{child_course_id}"
+
+    @staticmethod
+    def get_user_by_username(username: str) -> str:
+        """
+        Returns a lists of users based on a username query string
+        :param username: The Username of the user of the request
+        :return: A List of User Objects that has the based on the search criteria
+        """
+        return f"/learn/api/public/v1/users?userName={username}"
 
     @staticmethod
     def get_user_courses(user_id: str) -> str:
@@ -1122,13 +1132,14 @@ class FunctionQueue:
 function_queue = FunctionQueue()
 
 
-def _println(text: str, *args) -> None:
+def _println(text: str, *args, **kwargs) -> None:
     """
     Print Function that Adds an Extra Newline and Formats a String
     :param text: The Text to Print/Format
     :param args: The Formatting Arguments
+    :keyword new_line: Append new line at the end of the print message (defaults to True)
     """
-    function_queue.enqueue(print, text.format(*args) + f"{Fore.RESET}\n")
+    function_queue.enqueue(print, text.format(*args) + Fore.RESET + ('\n' if kwargs.get('new_line', True) else ''))
     # print(text.format(*args) + f"{Fore.RESET}\n")
 
 
@@ -1192,3 +1203,42 @@ class DownloadQueue(futures.ThreadPoolExecutor):
         except Exception as e:
             error = e
         cb(error)
+
+
+def get_cookies(learn_url: str, default_browser: Optional[str] = None) -> CookieJar:
+    """
+    Attempts to get a Users Login Session from a Browser
+    """
+    regex = re.compile("https?://(.*)")
+    learn_domain = regex.search(learn_url).group(1)
+    browsers = {
+        "chrome": browser_cookie3.chrome, 
+        "firefox": browser_cookie3.firefox,
+        "edge": browser_cookie3.edge,
+        "opera": browser_cookie3.opera,
+        "chromium": browser_cookie3.chromium,
+        "unknown": browser_cookie3.load
+    }
+
+    def get_cookies_from_browser(browser_name: str, browser_fn: Callable[..., CookieJar]):
+        try:
+            _println("Attempting to Grab Cookies for \"{}\" from browser: {}", learn_domain, browser_name, new_line=False)
+            ret = browser_fn(domain_name=learn_domain)
+            _println("Grabbed Cookies for \"{}\" from browser: {}", learn_domain, browser_name, new_line=False)
+            return ret
+        except Exception:
+            _println("Failed to Grab Cookies for Browser: {}", browser_name, new_line=False)
+
+    if default_browser is not None:
+        # Use Provided Arg
+        selection = default_browser.lower()
+    else:
+        # Let User Chose Browser
+        from main import navigation
+        selection = navigation([*browsers], title="Select a Browser to Pull Your Cookies from")
+
+    # If Invalid Selection Go Through All Browsers
+    if selection is None or browsers.get(selection) is None:
+       return get_cookies_from_browser("default", browser_cookie3.load)
+    else:
+        return get_cookies_from_browser(selection, browsers[selection])
