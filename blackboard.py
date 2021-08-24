@@ -168,8 +168,13 @@ class BlackBoardClient:
             if response_xml['@status'] == 'OK':
                 self.use_rest_api = response_xml['@use_learn_rest_api']
                 self.api_version = self.LearnAPIVersion(response_xml['@learn_version'])
-                self.user_id = response_xml['@userid']
-                self.batch_uid = response_xml['@batch_uid']
+                if self.browser:
+                    user = self.send_get_request(BlackBoardEndPoints.get_user_by_username(self.username)).json()
+                    self.user_id = user['results'][0]['id']
+                    self.batch_uid = None
+                else:
+                    self.user_id = response_xml['@userid']
+                    self.batch_uid = response_xml['@batch_uid']
                 return True, login
         return False, login
 
