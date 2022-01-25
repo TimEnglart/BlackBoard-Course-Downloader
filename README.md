@@ -1,3 +1,8 @@
+# NO LONGER MAINTAINED
+## Due to my graduation I no longer have access to my Institutes Blackboard Service, so I can no longer test or verify compatability with my particular University (James Cook University)
+
+---
+
 # BlackBoard Course Downloader
 
 [![GitHub issues](https://img.shields.io/github/issues/TimEnglart/BlackBoard-Course-Downloader.svg?label=Issues)](https://github.com/TimEnglart/BlackBoard-Course-Downloader/issues)
